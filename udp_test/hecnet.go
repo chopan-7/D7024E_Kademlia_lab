@@ -1,17 +1,19 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
 
 func client(ip string) error {
 
 	addr := net.ParseIP(ip)
+	fmt.Println(addr)
 
 	server := net.UDPAddr{
 		Port: 10001,
@@ -73,24 +75,54 @@ func GetOutboundIP() net.IP {
 }
 
 func main() {
-	connect := flag.String("connect", "", "IP address of process to join. If empty, go into listen mode.")
-	flag.Parse()
+	app := cli.NewApp()
+	app.Name = "Network CLI"
+	app.Usage = "Lets you send command to the distributed network"
 
-	// If the connect flag is set, go into client mode.
-	if *connect != "" {
-		err := client(*connect)
-		if err != nil {
-			log.Println("Error:", errors.WithStack(err))
-		}
-		log.Println("Client done.")
-		return
+	app.Commands = []cli.Command{
+		{
+			Name:  "ping",
+			Usage: "Will ping another node in the network given its IP adress",
+			Action: func(c *cli.Context) error {
+				client(c.Args()[0])
+				return nil
+
+			},
+		}, {
+			Name:  "start",
+			Usage: "Will start a listener on this node",
+			Action: func(c *cli.Context) error {
+				server()
+				return nil
+
+			},
+		},
 	}
 
-	// Else go into server mode.
-	err := server()
+	// start our application
+	err := app.Run(os.Args)
 	if err != nil {
-		log.Println("Error:", errors.WithStack(err))
+		log.Fatal(err)
 	}
 
-	log.Println("Server done.")
+	// connect := flag.String("connect", "", "IP address of process to join. If empty, go into listen mode.")
+	// flag.Parse()
+
+	// // If the connect flag is set, go into client mode.
+	// if *connect != "" {
+	// 	err := client(*connect)
+	// 	if err != nil {
+	// 		log.Println("Error:", errors.WithStack(err))
+	// 	}
+	// 	log.Println("Client done.")
+	// 	return
+	// }
+
+	// // Else go into server mode.
+	// err := server()
+	// if err != nil {
+	// 	log.Println("Error:", errors.WithStack(err))
+	// }
+
+	// log.Println("Server done.")
 }
