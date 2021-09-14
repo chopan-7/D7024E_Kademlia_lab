@@ -1,45 +1,21 @@
 package main
 
 import (
+	"fmt"
 	"kademlia/labCode"
+
 	"log"
 	"net"
-	"os"
-
-	"github.com/urfave/cli"
 )
 
 func main() {
-	app := cli.NewApp()
-	app.Name = "Network CLI"
-	app.Usage = "Lets you send command to the distributed network"
 
-	app.Commands = []cli.Command{
-		{
-			Name:  "ping",
-			Usage: "Will ping another node in the network given its IP adress",
-			Action: func(c *cli.Context) error {
-				labCode.TestPing(c.Args()[0])
-				return nil
+	ip := GetOutboundIP()
+	fmt.Println("Lietening to port:", 10001)
+	go labCode.Listen(ip.String(), 10001)
 
-			},
-		}, {
-			Name:  "start",
-			Usage: "Will start a listener on this node",
-			Action: func(c *cli.Context) error {
-				ip := GetOutboundIP()
-				labCode.Listen(ip.String(), 10001)
-				return nil
+	labCode.CLI()
 
-			},
-		},
-	}
-
-	// start our application
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func GetOutboundIP() net.IP {
