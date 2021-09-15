@@ -16,17 +16,25 @@ func CLI() {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print(`Welcome to hecnet!: 
 Available commands:
-ping <IP-address> (Almost)`)
-	text, _ := reader.ReadString('\n')
+ping <IP-address> (Almost)
+`)
+	for {
+		fmt.Print("Enter command:")
+		text, _ := reader.ReadString('\n')
+		text = strings.TrimRight(text, "\n")
+		if text == "q" || text == "quit" || text == "exit" {
+			fmt.Println("Bye!")
+			os.Exit(1)
+		}
 
-	words := strings.Fields(text)
+		words := strings.Fields(text)
 
-	err := parser(words)
+		err := parser(words)
 
-	if err != nil {
-		fmt.Println(errors.Wrap(err, "Failed to parse command"))
+		if err != nil {
+			fmt.Println(errors.Wrap(err, "Failed to parse command"))
+		}
 	}
-
 	/* app := cli.NewApp()
 	app.Name = "Network CLI"
 	app.Usage = "Lets you send command to the distributed network"
@@ -74,12 +82,20 @@ func parser(cmd []string) error {
 	switch command := cmd[0]; command {
 	case "ping":
 		fmt.Println("we shall run a", command, "command!")
-		// Perform ping-command
-	case "lookup":
+		ipAddress := []byte(cmd[1])
+		//kademliaID := NewKademliaID("kademlia")
+		//contact := NewContact(kademliaID, string(ipAddress))
+		TestPing(string(ipAddress))
+	case "store":
 		fmt.Println("we shall run a", command, "command!")
-		// Perform lookup-command
+		// Perform store command
+	case "find_node":
+		fmt.Println("we shall run a", command, "command!")
+		// Perform store command
+	case "find_value":
+		fmt.Println("we shall run a", command, "command!")
+		// Perform store command
 	default:
-
 		return errors.New(command + "is not a valid commaand...")
 	}
 	return nil
