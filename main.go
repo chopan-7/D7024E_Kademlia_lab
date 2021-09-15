@@ -33,6 +33,15 @@ func main() {
 
 			},
 		},
+		{
+			Name:  "lookup",
+			Usage: "test lookup function",
+			Action: func(c *cli.Context) error {
+				labCode.TestFindNode(c.Args()[0])
+				return nil
+
+			},
+		},
 	}
 
 	// start our application
