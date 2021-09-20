@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"sync"
 )
 
 // alpha parameter
@@ -17,7 +18,13 @@ type Kademlia struct {
 
 // LookupList for temporary storing nodeitems
 type LookupList struct {
-	nodelist []Contact
+	nodelist [][]Contact
+	mux      sync.Mutex
+}
+
+type visited struct {
+	nodes []Contact
+	mux   sync.Mutex
 }
 
 // NewKademliaNode returns a new instance of a Kademlianode
@@ -37,27 +44,49 @@ func NewKademliaNode(address string) (node Kademlia) {
 // LookupContact finds the bucketSize closest nodes and returns a list of contacts
 func (kademlia *Kademlia) LookupContact(target *Contact) []Contact {
 	net := &Network{}
-	// lookuplist := &LookupList{}
-	listItems := make([]Contact, alpha)
+	lupls := &LookupList{}
+	v := &visited{}
+	alphaNodes := make([]Contact, alpha)
 
 	// Find the k closest node to target
 	closest := kademlia.Routingtable.FindClosestContacts(target.ID, bucketSize)
 
-	// add the the alpha closest to the LookupList
+	// add the the alpha closest to the alphaNodes
 	for i := 0; i < alpha; i++ {
-		listItems[i] = closest[i]
+		alphaNodes[i] = closest[i]
 
 		// print distance to target during test
 		// fmt.Printf("Distance to target: %X \n", *nodeItem.contact.distance)
-
 	}
 
-	nodelist := &listItems
+	// sending RPCs to the alpha nodes async
+	for i, node := range alphaNodes {
+		go func() {
+			// add node to visisted
+			v.mux.Lock()
+			v.nodes = append(v.nodes, node)
 
-	// sending RPCs to the alpha nodes
-	for _, node := range *nodelist {
-		go net.SendFindContactMessage(&node)
-		fmt.Printf("Sending RPC to: %s \n", string(node.String()))
+			fmt.Printf("Sending RPC to: %s \n", string(node.String()))
+			_, contactList, _ := net.SendFindContactMessage(&node)
+
+			// add contactList to appropriate nodelist
+			lupls.mux.Lock()
+			for j, node := range contactList {
+				lupls.nodelist[i][j] = node
+			}
+			lupls.mux.Unlock()
+			v.mux.Unlock()
+
+		}()
+	}
+
+	// updating the appropriate bucket with contacts in nodelist when the lookup routine is done
+	for !gotResponseFrom(*v) {
+		lupls.mux.Lock()
+		for _, contacts := range lupls.nodelist {
+			kademlia.updateBuckets(contacts)
+		}
+		lupls.mux.Unlock()
 	}
 
 	return closest
@@ -79,6 +108,16 @@ func (kademlia *Kademlia) updateBuckets(clist []Contact) {
 	for _, contact := range clist {
 		rt.AddContact(contact)
 	}
+}
+
+// gotResponseFrom returns true if all alphanodes has responded
+func gotResponseFrom(v visited) bool {
+	v.mux.Lock()
+	if len(v.nodes) < alpha-1 {
+		return false
+	}
+	v.mux.Unlock()
+	return true
 }
 
 // Helper function for hashing data returing hexstring
