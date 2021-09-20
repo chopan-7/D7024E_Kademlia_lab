@@ -5,6 +5,27 @@ import (
 	"kademlia/labCode"
 )
 
+// func main() {
+
+// 	addr := sha1.New()
+// 	addr.Write([]byte("192.168.0.1:10001"))
+// 	sum := addr.Sum(nil)
+// 	fmt.Printf("SHA1-address value: %x", addr.Sum(nil))
+
+// 	sumpointer := &sum
+
+// 	fmt.Println()
+// 	fmt.Printf("Type: %T \n", sumpointer)
+// 	fmt.Printf("Value: %x \n", *sumpointer)
+
+// 	hs := hex.EncodeToString(*sumpointer)
+
+// 	fmt.Printf("HexString: %x \n", hs)
+
+// 	nid := labCode.NewKademliaID(hs)
+// 	fmt.Printf("New id: %x", nid)
+// }
+
 func main() {
 
 	// init node
@@ -36,11 +57,14 @@ func main() {
 	fmt.Printf("Target: %x\n", targetpointer)
 
 	// test FindClosestContact in Routingtable
-	closest := newNode.Routingtable.FindClosestContacts(targetpointer, 5)
+	// closest := newNode.Routingtable.FindClosestContacts(targetpointer, 5)
 
 	// test LookupContact
+	targetContact := labCode.NewContact(randId5, "192.168.0.2")
+	targetContactpointer := &targetContact
+	lookup := newNode.LookupContact(targetContactpointer)
 
-	fmt.Printf("Closest: %x", closest)
+	fmt.Printf("Closest: %s", lookup)
 }
 
 // func main() {
