@@ -10,6 +10,13 @@ import (
 )
 
 func main() {
+	kad := labCode.Kademlia{}
+	con := labCode.Contact{
+		ID:      labCode.NewRandomKademliaID(),
+		Address: "192.168.0.163:10002",
+	}
+	network := labCode.Network{}
+
 	app := cli.NewApp()
 	app.Name = "Network CLI"
 	app.Usage = "Lets you send command to the distributed network"
@@ -19,7 +26,7 @@ func main() {
 			Name:  "ping",
 			Usage: "Will ping another node in the network given its IP adress",
 			Action: func(c *cli.Context) error {
-				labCode.TestPing(c.Args()[0])
+				network.SendPingMessage(&con)
 				return nil
 
 			},
@@ -28,16 +35,34 @@ func main() {
 			Usage: "Will start a listener on this node",
 			Action: func(c *cli.Context) error {
 				ip := GetOutboundIP()
-				labCode.Listen(ip.String(), 10001)
+				labCode.Listen(ip.String(), 10001, kad)
+				return nil
+
+			},
+		},
+		{
+			Name:  "lookup_test",
+			Usage: "test lookup function",
+			Action: func(c *cli.Context) error {
+				labCode.TestFindNode(c.Args()[0])
 				return nil
 
 			},
 		},
 		{
 			Name:  "lookup",
-			Usage: "test lookup function",
+			Usage: "Uses the find_node rpc",
 			Action: func(c *cli.Context) error {
-				labCode.TestFindNode(c.Args()[0])
+				network.SendFindContactMessage(&con, labCode.NewRandomKademliaID())
+				return nil
+
+			},
+		},
+		{
+			Name:  "store",
+			Usage: "Uses the store_data rpc",
+			Action: func(c *cli.Context) error {
+				network.SendStoreMessage(&con, []byte("123123c"))
 				return nil
 
 			},
