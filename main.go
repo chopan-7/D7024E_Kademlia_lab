@@ -10,11 +10,6 @@ import (
 
 func main() {
 
-	ip := GetOutboundIP()
-	fmt.Print(ip)
-	go labCode.Listen(ip.String(), 10001)
-	labCode.CLIListen(ip.String(), 10002)
-
 	// init node
 	newNode := labCode.NewKademliaNode("192.168.0.1")
 
@@ -38,17 +33,22 @@ func main() {
 	newNode.Routingtable.AddContact(labCode.NewContact(randId5, "192.168.0.6"))
 
 	//
-	var targetpointer *labCode.KademliaID
-	targetpointer = randId5
+	//var targetpointer *labCode.KademliaID
+	//targetpointer = randId5
 
-	fmt.Printf("Target: %x\n", targetpointer)
+	//fmt.Printf("Target: %x\n", targetpointer)
 
 	// test FindClosestContact in Routingtable
-	closest := newNode.Routingtable.FindClosestContacts(targetpointer, 5)
+	//closest := newNode.Routingtable.FindClosestContacts(targetpointer, 5)
 
 	// test LookupContact
 
-	fmt.Printf("Closest: %x", closest)
+	//fmt.Printf("Closest: %x", closest)
+	ip := GetOutboundIP()
+	fmt.Print(ip)
+	go labCode.Listen(ip.String(), 10001, *newNode)
+	labCode.CLIListen(ip.String(), 10002)
+
 }
 
 // func main() {

@@ -18,6 +18,7 @@ type Msgbody struct {
 	Nodes []Contact   // List of contact nodes
 	Data  []byte      // Hashed key value
 	KadID *KademliaID // For find_node RPCs the id we are looking for
+	Hash  string      // Used for find_value rpcs to find the node that has stored data for the hashed key value
 }
 
 type Response struct {
@@ -26,7 +27,10 @@ type Response struct {
 	Body Msgbody
 }
 
-func Listen(ip string, port int) {
+// Will open up a UDP listener on itself with a given port.
+// If a message is received on the listener it will use the response handler to do the
+// correct operations
+func Listen(ip string, port int, node Kademlia) {
 	addr := net.ParseIP(ip)
 	fmt.Println(addr)
 	server := net.UDPAddr{
@@ -42,52 +46,36 @@ func Listen(ip string, port int) {
 
 		fmt.Println("Received RPC: ", res.RPC, "\nWith RPC ID: ", res.ID, "\nBody: ", res.Body, "\nFrom ", remoteaddr)
 
-		responseMsg := responseHandler(res)
+		responseMsg := responseHandler(res, node)
 		marshalledMsg := marshallData(responseMsg)
 		sendResponse(ServerConn, remoteaddr, marshalledMsg)
 	}
 }
 
-func (network *Network) SendPingMessage(contact *Contact) error {
+// All of the RPC are sent using these message functions. The functions will create a Response
+// object with the data it has to send. Then the MessageHandler function will send and retreive the response
+// from the other contact
 
-	udpAddr := GetUDPAddrFromContact(contact)
+// Creates correct message for a ping
+func (network *Network) SendPingMessage(contact *Contact) error {
 
 	msg := Response{
 		RPC: "ping",
 		ID:  NewRandomKademliaID(),
 	}
 
-	marshalledMsg := marshallData(msg)
-
-	Conn, err := net.DialUDP("udp", nil, &udpAddr)
-
+	_, err := MessageHandler(contact, msg)
 	if err != nil {
-		return errors.Wrap(err, "Client: Failed to open connection to "+udpAddr.IP.String())
-	}
-
-	defer Conn.Close()
-	Conn.Write([]byte(marshalledMsg))
-	buf := make([]byte, 1024)
-
-	for {
-		n, remoteaddr, _ := Conn.ReadFromUDP(buf)
-		rec := unmarshallData(buf[0:n])
-
-		if Validate(msg, rec) {
-			fmt.Println("Received RPC: ", rec.RPC, "\nWith RPC ID: ", rec.ID, "\nBody: ", rec.Body, "\nFrom ", remoteaddr)
-			break
-		}
+		errors.Wrap(err, "Something went wrong")
 	}
 	return nil
 }
 
-func (network *Network) SendFindContactMessage(contact *Contact, kadID *KademliaID) error {
-	// TODO
-
-	udpAddr := GetUDPAddrFromContact(contact)
+// Creates correct message object for find_node RPC
+func (network *Network) SendFindContactMessage(contact *Contact, kadID *KademliaID) ([]Contact, error) {
 
 	body := Msgbody{
-		KadID: kadID,
+		KadID: kadID, // Puts the nodes ID we are looking for in the body
 	}
 
 	msg := Response{
@@ -96,41 +84,39 @@ func (network *Network) SendFindContactMessage(contact *Contact, kadID *Kademlia
 		Body: body,
 	}
 
-	marshalledMsg := marshallData(msg)
-
-	Conn, err := net.DialUDP("udp", nil, &udpAddr)
-
+	res, err := MessageHandler(contact, msg)
 	if err != nil {
-		return errors.Wrap(err, "Client: Failed to open connection to "+udpAddr.IP.String())
+		errors.Wrap(err, "Something went wrong")
 	}
 
-	defer Conn.Close()
-	Conn.Write([]byte(marshalledMsg))
-	buf := make([]byte, 1024)
-
-	n, remoteaddr, _ := Conn.ReadFromUDP(buf)
-	rec := unmarshallData(buf[0:n])
-
-	fmt.Println("msg id: ", msg.ID, "\nrec id: ", rec.ID, "\nrec rpc : ", rec.RPC)
-
-	if Validate(msg, rec) {
-		fmt.Println("Received RPC: ", rec.RPC, "\nWith RPC ID: ", rec.ID, "\nBody: ", rec.Body, "\nFrom ", remoteaddr)
-	}
-
-	return nil
+	return res.Body.Nodes, nil
 
 }
 
-func (network *Network) SendFindDataMessage(hash string) {
-	// TODO
-}
-
-func (network *Network) SendStoreMessage(contact *Contact, data []byte) error {
-	// TODO
-	udpAddr := GetUDPAddrFromContact(contact)
-
+// Creates correct message object for find_data RPC
+func (network *Network) SendFindDataMessage(contact *Contact, hash string) ([]byte, []Contact, error) {
 	body := Msgbody{
-		Data: data,
+		Hash: hash, // Hashed id is put in the body
+	}
+
+	msg := Response{
+		RPC:  "find_data",
+		ID:   NewRandomKademliaID(),
+		Body: body,
+	}
+
+	res, err := MessageHandler(contact, msg)
+	if err != nil {
+		errors.Wrap(err, "Something went wrong")
+	}
+
+	return res.Body.Data, res.Body.Nodes, nil
+}
+
+// Creates the correct message for a store_data RPC
+func (network *Network) SendStoreMessage(contact *Contact, data []byte) error {
+	body := Msgbody{
+		Data: data, // Data to store is put in the body
 	}
 
 	msg := Response{
@@ -139,121 +125,43 @@ func (network *Network) SendStoreMessage(contact *Contact, data []byte) error {
 		Body: body,
 	}
 
+	_, err := MessageHandler(contact, msg)
+	if err != nil {
+		errors.Wrap(err, "Something went wrong")
+	}
+	return nil
+}
+
+// Handles the UDP connection dial up.
+// Will fetch address of the desired contact and will then open a connection to that adress
+// Will marshal the data and then send it over the connection
+// Waits for a response from the connection and then returns the response object if it is validated.
+func MessageHandler(contact *Contact, msg Response) (Response, error) {
+	udpAddr := GetUDPAddrFromContact(contact)
+
 	marshalledMsg := marshallData(msg)
 
 	Conn, err := net.DialUDP("udp", nil, &udpAddr)
 
 	if err != nil {
-		return errors.Wrap(err, "Client: Failed to open connection to "+udpAddr.IP.String())
+		return Response{}, errors.Wrap(err, "Client: Failed to open connection to "+udpAddr.IP.String())
 	}
 
 	defer Conn.Close()
 	Conn.Write([]byte(marshalledMsg))
 	buf := make([]byte, 1024)
+
+	//Conn.SetDeadline(time.Now().Add(deadline)) TODODODO
 
 	n, remoteaddr, _ := Conn.ReadFromUDP(buf)
-	rec := unmarshallData(buf[0:n])
+	res := unmarshallData(buf[0:n])
 
-	fmt.Println("msg id: ", msg.ID, "\nrec id: ", rec.ID, "\nrec rpc : ", rec.RPC)
+	fmt.Println("msg id: ", msg.ID, "\nrec id: ", res.ID, "\nrec rpc : ", res.RPC)
 
-	if Validate(msg, rec) {
-		fmt.Println("Received RPC: ", rec.RPC, "\nWith RPC ID: ", rec.ID, "\nBody: ", rec.Body, "\nFrom ", remoteaddr)
+	if Validate(msg, res) {
+		fmt.Println("Received RPC: ", res.RPC, "\nWith RPC ID: ", res.ID, "\nBody: ", res.Body, "\nFrom ", remoteaddr)
 	}
-
-	return nil
-}
-
-func TestFindNode(ip string) error {
-	msg := Response{
-		RPC: "find_node",
-		ID:  NewRandomKademliaID(),
-	}
-
-	marshalledMsg := marshallData(msg)
-
-	addr := net.ParseIP(ip)
-	fmt.Println(addr)
-
-	server := net.UDPAddr{
-		Port: 10002,
-		IP:   addr,
-	}
-
-	Conn, err := net.DialUDP("udp", nil, &server)
-
-	if err != nil {
-		return errors.Wrap(err, "Client: Failed to open connection to "+ip)
-	}
-
-	defer Conn.Close()
-	Conn.Write([]byte(marshalledMsg))
-	buf := make([]byte, 1024)
-
-	n, remoteaddr, _ := Conn.ReadFromUDP(buf)
-	rec := unmarshallData(buf[0:n])
-
-	fmt.Println("msg id: ", msg.ID, "\nrec id: ", rec.ID, "\nrec rpc : ", rec.RPC)
-
-	if rec.RPC == "find_node" && rec.ID == msg.ID {
-		fmt.Println("Received RPC: ", rec.RPC, "\nWith RPC ID: ", rec.ID, "\nBody: ", rec.Body, "\nFrom ", remoteaddr)
-	}
-
-	return nil
-
-}
-
-func TestPing(ip string) error {
-
-	// Dummy data for test sending udp messages
-	msg := Response{
-		RPC: "ping",
-		ID:  NewRandomKademliaID(),
-	}
-
-	marshalledMsg := marshallData(msg)
-
-	addr := net.ParseIP(ip)
-	fmt.Println(addr)
-
-	server := net.UDPAddr{
-		Port: 10001,
-		IP:   addr,
-	}
-
-	Conn, err := net.DialUDP("udp", nil, &server)
-
-	if err != nil {
-		return errors.Wrap(err, "Client: Failed to open connection to "+ip)
-	}
-
-	defer Conn.Close()
-	Conn.Write([]byte(marshalledMsg))
-	buf := make([]byte, 1024)
-
-	for {
-		n, remoteaddr, _ := Conn.ReadFromUDP(buf)
-		rec := unmarshallData(buf[0:n])
-
-		if Validate(msg, rec) {
-			fmt.Println("Received RPC: ", rec.RPC, "\nWith RPC ID: ", rec.ID, "\nBody: ", rec.Body, "\nFrom ", remoteaddr)
-			break
-		}
-	}
-
-	return nil
-}
-
-// Will marshall the response object into json
-func marshallData(data Response) []byte {
-	marshalledData, _ := json.Marshal(data)
-	return marshalledData
-}
-
-// Will unmarshall the byte stream into json
-func unmarshallData(data []byte) Response {
-	var unmarshalledData Response
-	json.Unmarshal([]byte(data), &unmarshalledData)
-	return unmarshalledData
+	return res, nil
 }
 
 // Given a connection channel, ip address of the node that sent a message
@@ -266,14 +174,16 @@ func sendResponse(conn *net.UDPConn, addr *net.UDPAddr, responseMsg []byte) {
 }
 
 // The response handler will return the correct response based on which RPC it received
-func responseHandler(res Response) Response {
+func responseHandler(res Response, node Kademlia) Response {
 	switch res.RPC {
 	case "ping":
-		return createPingResponse(res.ID)
+		return createPingResponse(res)
 	case "find_node":
-		return createFindNodeResponse(res.ID)
+		return createFindNodeResponse(res, node)
 	case "find_data":
+		return createFindDataResponse(res, node)
 	case "store_data":
+		return createStoreResponse(res)
 	}
 
 	return Response{}
@@ -290,44 +200,83 @@ func Validate(msg Response, res Response) bool {
 }
 
 // Will create a simple ping RPC response object
-func createPingResponse(resID *KademliaID) Response {
+func createPingResponse(res Response) Response {
 	responseMessage := Response{
 		RPC: "ping",
-		ID:  resID,
+		ID:  res.ID,
 	}
 	return responseMessage
 }
 
-func createFindNodeResponse(resID *KademliaID) Response {
-	// Need own node in order to reach own routingtable to find K closest nodes to the target.
-	// Something like contacts := ownNode.ownRoutingtable.FindClosestContacts
+// Creates a find_node RPC response containing the nodes k closest contacts to a given ID
+func createFindNodeResponse(res Response, node Kademlia) Response {
 
-	// Here is just dummy data that is the contact list
-
-	con := NewContact(NewRandomKademliaID(), "111.111.111.111")
-	con2 := NewContact(NewRandomKademliaID(), "222.222.222.222")
-	con3 := NewContact(NewRandomKademliaID(), "333.333.333.333")
-	con4 := NewContact(NewRandomKademliaID(), "444.444.444.444")
-	con5 := NewContact(NewRandomKademliaID(), "555.555.555.555")
-	conList := make([]Contact, 5)
-	conList[0] = con
-	conList[1] = con2
-	conList[2] = con3
-	conList[3] = con4
-	conList[4] = con5
+	contacts := node.Routingtable.FindClosestContacts(res.Body.KadID, 20)
 
 	resBody := Msgbody{
-		Nodes: conList,
+		Nodes: contacts,
 	}
 
 	responseMessage := Response{
 		RPC:  "find_node",
-		ID:   resID,
+		ID:   res.ID,
 		Body: resBody,
 	}
 	return responseMessage
 }
 
+// Creates a find_data RPC response containing only the data requested if it is stored in the node
+// Or will return the 20 closest contacts to the hashed value ID
+func createFindDataResponse(res Response, node Kademlia) Response {
+	// Function for finding data in node
+	// if data in node:
+
+	// else
+
+	contacts := node.Routingtable.FindClosestContacts(NewKademliaID(res.Body.Hash), 20)
+	fmt.Println(contacts)
+
+	resBody := Msgbody{
+		Nodes: contacts,
+	}
+
+	responseMessage := Response{
+		RPC:  "find_data",
+		ID:   res.ID,
+		Body: resBody,
+	}
+
+	fmt.Println("%+v", responseMessage)
+
+	return responseMessage
+
+}
+
+// Creates a simple store_data RPC response to confirm that the data has been stored on the node
+func createStoreResponse(res Response) Response {
+	//Stores data in the node
+
+	responseMessage := Response{
+		RPC: "store_data",
+		ID:  res.ID,
+	}
+	return responseMessage
+}
+
+// Will marshall the response object into json
+func marshallData(data Response) []byte {
+	marshalledData, _ := json.Marshal(data)
+	return marshalledData
+}
+
+// Will unmarshall the byte stream into json
+func unmarshallData(data []byte) Response {
+	var unmarshalledData Response
+	json.Unmarshal([]byte(data), &unmarshalledData)
+	return unmarshalledData
+}
+
+// Creates a UDPAddr from a contacts ip address.
 func GetUDPAddrFromContact(contact *Contact) net.UDPAddr {
 	addr, port, _ := net.SplitHostPort(contact.Address)
 	netAddr := net.ParseIP(addr)
