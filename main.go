@@ -11,7 +11,7 @@ import (
 func main() {
 
 	ip := GetOutboundIP()
-	fmt.Println("Listening to port:", 10001)
+	fmt.Print(ip)
 	go labCode.Listen(ip.String(), 10001)
 	labCode.CLIListen(ip.String(), 10002)
 

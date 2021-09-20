@@ -27,7 +27,7 @@ func Listen(ip string, port int) {
 	addr := net.ParseIP(ip)
 	fmt.Println(addr)
 	server := net.UDPAddr{
-		Port: 10002,
+		Port: 10001,
 		IP:   addr,
 	}
 	ServerConn, _ := net.ListenUDP("udp", &server)
@@ -120,7 +120,7 @@ func TestPing(ip string) error {
 	fmt.Println(addr)
 
 	server := net.UDPAddr{
-		Port: 10002,
+		Port: 10001,
 		IP:   addr,
 	}
 
