@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"kademlia/labCode"
+
+	"log"
+	"net"
 )
 
 // func main() {
@@ -27,7 +30,6 @@ import (
 // }
 
 func main() {
-
 	// init node
 	newNode := labCode.NewKademliaNode("192.168.0.1")
 
@@ -51,20 +53,28 @@ func main() {
 	newNode.Routingtable.AddContact(labCode.NewContact(randId5, "192.168.0.6"))
 
 	//
-	var targetpointer *labCode.KademliaID
-	targetpointer = randId5
+	//var targetpointer *labCode.KademliaID
+	//targetpointer = randId5
 
-	fmt.Printf("Target: %x\n", targetpointer)
+	//fmt.Printf("Target: %x\n", targetpointer)
 
 	// test FindClosestContact in Routingtable
+
 	// closest := newNode.Routingtable.FindClosestContacts(targetpointer, 5)
+
 
 	// test LookupContact
 	targetContact := labCode.NewContact(randId5, "192.168.0.2")
 	targetContactpointer := &targetContact
 	lookup := newNode.LookupContact(targetContactpointer)
 
-	fmt.Printf("Closest: %s", lookup)
+
+	//fmt.Printf("Closest: %x", closest)
+	ip := GetOutboundIP()
+	fmt.Print(ip)
+	go labCode.Listen(ip.String(), 10001, *newNode)
+	labCode.CLIListen(ip.String(), 10002)
+
 }
 
 // func main() {
@@ -100,14 +110,14 @@ func main() {
 // 	}
 // }
 
-// func GetOutboundIP() net.IP {
-// 	conn, err := net.Dial("udp", "8.8.8.8:80")
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	defer conn.Close()
+func GetOutboundIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
 
-// 	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
-// 	return localAddr.IP
-// }
+	return localAddr.IP
+}

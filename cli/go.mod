@@ -1,4 +1,4 @@
-module kademlia
+module D7024E_Kademlia_lab/cli
 
 go 1.17
 
