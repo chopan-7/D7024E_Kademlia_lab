@@ -63,12 +63,10 @@ func main() {
 
 	// closest := newNode.Routingtable.FindClosestContacts(targetpointer, 5)
 
-
 	// test LookupContact
-	targetContact := labCode.NewContact(randId5, "192.168.0.2")
-	targetContactpointer := &targetContact
-	lookup := newNode.LookupContact(targetContactpointer)
-
+	// targetContact := labCode.NewContact(randId5, "192.168.0.2")
+	// targetContactpointer := &targetContact
+	//lookup := newNode.LookupContact(targetContactpointer)
 
 	//fmt.Printf("Closest: %x", closest)
 	ip := GetOutboundIP()
