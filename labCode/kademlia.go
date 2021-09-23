@@ -47,16 +47,22 @@ func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Cont
 		listContact.Nodelist = append(listContact.Nodelist, *lookupitem)
 	}
 
-	// sending RPCs to the alpha nodes async
-	for i := 0; i < alpha; i++ {
-		go asyncLookup(*targetID, listContact.Nodelist[i].Node, *net, ch)
+	fmt.Printf("\nclosest: %d\n", len(myClosest))
+	// if LookupContact on JoinNetwork
+	if len(myClosest) < alpha {
+		go asyncLookup(*targetID, listContact.Nodelist[0].Node, *net, ch)
+	} else {
+		// sending RPCs to the alpha nodes async
+		for i := 0; i < alpha; i++ {
+			go asyncLookup(*targetID, listContact.Nodelist[i].Node, *net, ch)
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			listContact.updateLookupList(*targetID, ch, *net, wg)
+		}()
+		wg.Wait()
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		listContact.updateLookupList(*targetID, ch, *net, wg)
-	}()
-	wg.Wait()
 
 	// creating the result list
 	for _, insItem := range listContact.Nodelist {
@@ -128,6 +134,7 @@ func (kademlia *Kademlia) Store(data []byte) {
 
 // JoinNetwork takes knownpeer or bootstrapNode
 func (kademlia *Kademlia) JoinNetwork(knownpeer *Contact, nodeIP string) {
+	kademlia.Routingtable.AddContact(*knownpeer)
 	kademlia.LookupContact(knownpeer.ID)
 	fmt.Printf("Joining network")
 }

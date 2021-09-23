@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	lc "kademlia/labCode"
 	"log"
 	"net"
@@ -11,18 +12,20 @@ func main() {
 	port := "10001"
 	localIP := GetOutboundIP()
 	localIPstr := localIP.String() + ":" + port // currentNode IP
-	bnIP := "192.168.10.165:10001"              // bootstrapNode IP
+	bnIP := "172.18.0.2:10001"                  // bootstrapNode IP
 
 	// create a new node and init network with current node
 	nn := lc.NewKademliaNode(localIPstr)
 	network := &lc.Network{}
 	network.Node = &nn
 
+	fmt.Printf("\nIP: %s\n", localIP.String())
 	// Join network if not a BootstrapNode
 	if localIPstr != bnIP {
 		// Join network by sending LookupContact to bootstrapNode
 		bnContact := lc.NewContact(lc.NewKademliaID(lc.HashData(bnIP)), bnIP)
 		nn.JoinNetwork(&bnContact, localIPstr)
+		fmt.Printf("\nRoutingtable: %x\n", nn.Routingtable.FindClosestContacts(nn.Me.ID, 2))
 	}
 
 	go network.Listen()
