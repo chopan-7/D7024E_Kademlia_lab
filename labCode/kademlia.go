@@ -8,88 +8,114 @@ import (
 )
 
 // alpha parameter
-var alpha int = 3
+const alpha int = 3
 
 // Kademlia node definition
 // store the routingtable
 type Kademlia struct {
+	Me           Contact
 	Routingtable *RoutingTable
-}
-
-// LookupList for temporary storing nodeitems
-type LookupList struct {
-	nodelist [][]Contact
-	mux      sync.Mutex
-}
-
-type visited struct {
-	nodes []Contact
-	mux   sync.Mutex
 }
 
 // NewKademliaNode returns a new instance of a Kademlianode
 // containing a routingtable for now...
 func NewKademliaNode(address string) (node Kademlia) {
-	nodeID := NewKademliaID(hashData(address)) // Assign a KademliaID to this node
-	me := NewContact(nodeID, address)          // and store to contact object
-	node.Routingtable = NewRoutingTable(me)
+	nodeID := NewKademliaID(HashData(address)) // Assign a KademliaID to this node
+	node.Me = NewContact(nodeID, address)      // and store to contact object
+	node.Routingtable = NewRoutingTable(node.Me)
 
 	// print trace, remove later
 	fmt.Println("New node created! :)")
-	fmt.Printf("Me: %s \n", me.String())
+	fmt.Printf("Me: %s \n", node.Me.String())
 
 	return
 }
 
 // LookupContact finds the bucketSize closest nodes and returns a list of contacts
-func (kademlia *Kademlia) LookupContact(target *Contact) []Contact {
-	net := &Network{}
-	lupls := &LookupList{}
-	v := &visited{}
-	alphaNodes := make([]Contact, alpha)
+func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Contact) {
+	net := &Network{kademlia}
+	var wg sync.WaitGroup // gorutine waiting pool
+
+	ch := make(chan []Contact)
+
+	listContact := &LookupList{} // return
+	myClosest := kademlia.Routingtable.FindClosestContacts(targetID, bucketSize)
 
 	// Find the k closest node to target
-	closest := kademlia.Routingtable.FindClosestContacts(target.ID, bucketSize)
-
-	// add the the alpha closest to the alphaNodes
-	for i := 0; i < alpha; i++ {
-		alphaNodes[i] = closest[i]
-
-		// print distance to target during test
-		// fmt.Printf("Distance to target: %X \n", *nodeItem.contact.distance)
+	for _, insItem := range myClosest {
+		lookupitem := &LookupListItems{insItem, false}
+		listContact.Nodelist = append(listContact.Nodelist, *lookupitem)
 	}
 
 	// sending RPCs to the alpha nodes async
-	for i, node := range alphaNodes {
-		go func() {
-			// add node to visisted
-			v.mux.Lock()
-			v.nodes = append(v.nodes, node)
-
-			fmt.Printf("Sending RPC to: %s \n", string(node.String()))
-			_, contactList, _ := net.SendFindContactMessage(&node)
-
-			// add contactList to appropriate nodelist
-			lupls.mux.Lock()
-			for j, node := range contactList {
-				lupls.nodelist[i][j] = node
-			}
-			lupls.mux.Unlock()
-			v.mux.Unlock()
-
-		}()
+	for i := 0; i < alpha; i++ {
+		go asyncLookup(*targetID, listContact.Nodelist[i].Node, *net, ch)
 	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		listContact.updateLookupList(*targetID, ch, *net, wg)
+	}()
+	wg.Wait()
 
-	// updating the appropriate bucket with contacts in nodelist when the lookup routine is done
-	for !gotResponseFrom(*v) {
-		lupls.mux.Lock()
-		for _, contacts := range lupls.nodelist {
-			kademlia.updateBuckets(contacts)
+	// creating the result list
+	for _, insItem := range listContact.Nodelist {
+		resultlist = append(resultlist, insItem.Node)
+	}
+	return
+}
+
+func asyncLookup(targetID KademliaID, receiver Contact, net Network, ch chan []Contact) {
+	reslist, _ := net.SendFindContactMessage(&receiver, &targetID)
+	ch <- reslist
+}
+
+func (lookuplist *LookupList) updateLookupList(targetID KademliaID, ch chan []Contact, net Network, wg sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		contacts := <-ch
+		tempList := LookupList{}         // holds the response []Contact
+		tempList2 := lookuplist.Nodelist // Copy of lookuplist
+		for _, contact := range contacts {
+			listItem := LookupListItems{contact, false}
+			tempList.Nodelist = append(tempList.Nodelist, listItem)
 		}
-		lupls.mux.Unlock()
-	}
 
-	return closest
+		// sorting/filtering list
+		sortingList := LookupCandidates{}
+		sortingList.Append(tempList.Nodelist)
+		sortingList.Append(tempList2)
+		sortingList.Sort()
+
+		// update the lookuplist
+		if len(sortingList.Nodelist) < bucketSize {
+			lookuplist.Nodelist = sortingList.GetContacts(len(sortingList.Nodelist))
+		} else {
+			lookuplist.Nodelist = sortingList.GetContacts(bucketSize)
+		}
+
+		nextContact, Done := findNextLookup(lookuplist)
+		if Done {
+			fmt.Printf("\nLookupdone!\n")
+			return
+		} else {
+			go asyncLookup(targetID, nextContact, net, ch)
+		}
+	}
+}
+
+func findNextLookup(lookuplist *LookupList) (Contact, bool) {
+	var nextItem Contact
+	done := true
+	for i, item := range lookuplist.Nodelist {
+		if item.Flag == false {
+			nextItem = item.Node
+			lookuplist.Nodelist[i].Flag = true
+			done = false
+			break
+		}
+	}
+	return nextItem, done
 }
 
 func (kademlia *Kademlia) LookupData(hash string) {
@@ -98,6 +124,12 @@ func (kademlia *Kademlia) LookupData(hash string) {
 
 func (kademlia *Kademlia) Store(data []byte) {
 	// TODO
+}
+
+// JoinNetwork takes knownpeer or bootstrapNode
+func (kademlia *Kademlia) JoinNetwork(knownpeer *Contact, nodeIP string) {
+	kademlia.LookupContact(knownpeer.ID)
+	fmt.Printf("Joining network")
 }
 
 // UpdateBuckets adds/update the appropriate buckets in the routingtable.
@@ -110,20 +142,10 @@ func (kademlia *Kademlia) updateBuckets(clist []Contact) {
 	}
 }
 
-// gotResponseFrom returns true if all alphanodes has responded
-func gotResponseFrom(v visited) bool {
-	v.mux.Lock()
-	if len(v.nodes) < alpha-1 {
-		return false
-	}
-	v.mux.Unlock()
-	return true
-}
-
 // Helper function for hashing data returing hexstring
-func hashData(data string) (hashed string) {
+func HashData(data string) (hashString string) {
 	newHash := sha1.New()
 	newHash.Write([]byte(data))
-	hashed = hex.EncodeToString(newHash.Sum(nil))
+	hashString = hex.EncodeToString(newHash.Sum(nil))
 	return
 }

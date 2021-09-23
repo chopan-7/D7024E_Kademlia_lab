@@ -1,113 +1,82 @@
 package main
 
 import (
-	"fmt"
-	"kademlia/labCode"
-
+	lc "kademlia/labCode"
 	"log"
 	"net"
 )
 
-// func main() {
-
-// 	addr := sha1.New()
-// 	addr.Write([]byte("192.168.0.1:10001"))
-// 	sum := addr.Sum(nil)
-// 	fmt.Printf("SHA1-address value: %x", addr.Sum(nil))
-
-// 	sumpointer := &sum
-
-// 	fmt.Println()
-// 	fmt.Printf("Type: %T \n", sumpointer)
-// 	fmt.Printf("Value: %x \n", *sumpointer)
-
-// 	hs := hex.EncodeToString(*sumpointer)
-
-// 	fmt.Printf("HexString: %x \n", hs)
-
-// 	nid := labCode.NewKademliaID(hs)
-// 	fmt.Printf("New id: %x", nid)
-// }
-
+// Testing bootstrapnodes
 func main() {
-	// init node
-	newNode := labCode.NewKademliaNode("192.168.0.1")
+	port := "10001"
+	localIP := GetOutboundIP()
+	localIPstr := localIP.String() + ":" + port // currentNode IP
+	bnIP := "192.168.10.165:10001"              // bootstrapNode IP
 
-	// create 5 random ids
-	randId1 := labCode.NewRandomKademliaID()
-	randId2 := labCode.NewRandomKademliaID()
-	randId3 := labCode.NewRandomKademliaID()
-	randId4 := labCode.NewRandomKademliaID()
-	randId5 := labCode.NewRandomKademliaID()
-	// fmt.Println(randId1.String())
-	// fmt.Println(randId2.String())
-	// fmt.Println(randId3.String())
-	// fmt.Println(randId4.String())
-	// fmt.Println(randId5.String())
+	// create a new node and init network with current node
+	nn := lc.NewKademliaNode(localIPstr)
+	network := &lc.Network{}
+	network.Node = &nn
 
-	// add 5 random nodes to the nodes to the routing table
-	newNode.Routingtable.AddContact(labCode.NewContact(randId1, "192.168.0.2"))
-	newNode.Routingtable.AddContact(labCode.NewContact(randId2, "192.168.0.3"))
-	newNode.Routingtable.AddContact(labCode.NewContact(randId3, "192.168.0.4"))
-	newNode.Routingtable.AddContact(labCode.NewContact(randId4, "192.168.0.5"))
-	newNode.Routingtable.AddContact(labCode.NewContact(randId5, "192.168.0.6"))
+	// Join network if not a BootstrapNode
+	if localIPstr != bnIP {
+		// Join network by sending LookupContact to bootstrapNode
+		bnContact := lc.NewContact(lc.NewKademliaID(lc.HashData(bnIP)), bnIP)
+		nn.JoinNetwork(&bnContact, localIPstr)
+	}
 
-	//
-	//var targetpointer *labCode.KademliaID
-	//targetpointer = randId5
-
-	//fmt.Printf("Target: %x\n", targetpointer)
-
-	// test FindClosestContact in Routingtable
-
-	// closest := newNode.Routingtable.FindClosestContacts(targetpointer, 5)
-
-
-	// test LookupContact
-	targetContact := labCode.NewContact(randId5, "192.168.0.2")
-	targetContactpointer := &targetContact
-	lookup := newNode.LookupContact(targetContactpointer)
-
-
-	//fmt.Printf("Closest: %x", closest)
-	ip := GetOutboundIP()
-	fmt.Print(ip)
-	go labCode.Listen(ip.String(), 10001, *newNode)
-	labCode.CLIListen(ip.String(), 10002)
+	go network.Listen()
+	for {
+	}
 
 }
 
 // func main() {
-// 	app := cli.NewApp()
-// 	app.Name = "Network CLI"
-// 	app.Usage = "Lets you send command to the distributed network"
+// 	ip := "192.168.10.165"
+// 	//testnodes
+// 	n0 := lc.NewKademliaNode(ip + ":10000")
+// 	n1 := lc.NewKademliaNode(ip + ":10001")
+// 	n2 := lc.NewKademliaNode(ip + ":10002")
+// 	n3 := lc.NewKademliaNode(ip + ":10003")
+// 	n4 := lc.NewKademliaNode(ip + ":10004")
+// 	n5 := lc.NewKademliaNode(ip + ":10005")
 
-// 	app.Commands = []cli.Command{
-// 		{
-// 			Name:  "ping",
-// 			Usage: "Will ping another node in the network given its IP adress",
-// 			Action: func(c *cli.Context) error {
-// 				labCode.TestPing(c.Args()[0])
-// 				return nil
+// 	// adding contact to n0 routingtable
+// 	n0.Routingtable.AddContact(n1.Me)
+// 	n0.Routingtable.AddContact(n2.Me)
+// 	n0.Routingtable.AddContact(n3.Me)
+// 	n0.Routingtable.AddContact(n4.Me)
+// 	n0.Routingtable.AddContact(n5.Me)
 
-// 			},
-// 		}, {
-// 			Name:  "start",
-// 			Usage: "Will start a listener on this node",
-// 			Action: func(c *cli.Context) error {
-// 				ip := GetOutboundIP()
-// 				labCode.Listen(ip.String(), 10001)
-// 				return nil
+// 	n1.Routingtable.AddContact(n3.Me)
+// 	n1.Routingtable.AddContact(n5.Me)
+// 	n2.Routingtable.AddContact(n1.Me)
+// 	n2.Routingtable.AddContact(n3.Me)
+// 	n3.Routingtable.AddContact(n4.Me)
+// 	n3.Routingtable.AddContact(n0.Me)
+// 	n4.Routingtable.AddContact(n2.Me)
+// 	n4.Routingtable.AddContact(n3.Me)
+// 	n5.Routingtable.AddContact(n0.Me)
+// 	n5.Routingtable.AddContact(n3.Me)
+// 	n5.Routingtable.AddContact(n4.Me)
 
-// 			},
-// 		},
-// 	}
+// 	// open Listener for all nodes
+// 	net0 := lc.Network{&n0}
+// 	net1 := lc.Network{&n1}
+// 	net2 := lc.Network{&n2}
+// 	net3 := lc.Network{&n3}
+// 	net4 := lc.Network{&n4}
+// 	net5 := lc.Network{&n5}
 
-// 	// start our application
-// 	err := app.Run(os.Args)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
+// 	go net0.Listen()
+// 	go net1.Listen()
+// 	go net2.Listen()
+// 	go net3.Listen()
+// 	go net4.Listen()
+// 	go net5.Listen()
+
+// 	closest := n0.LookupContact(n5.Me.ID)
+// 	fmt.Printf("Closest from n0 to n5: %s\n", closest)
 // }
 
 func GetOutboundIP() net.IP {

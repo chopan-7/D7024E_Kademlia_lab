@@ -74,7 +74,7 @@ func cliresponseHandler(res Response) Response {
 
 // Will create a simple ping RPC response object
 func cliPing(data []byte) Response {
-	TestPing(string(data))
+	// TestPing(string(data))
 	responseMessage := Response{
 		RPC: "ping",
 		//ID:  resID,
