@@ -10,7 +10,7 @@ import (
 )
 
 type Network struct {
-	node Kademlia
+	Node *Kademlia
 }
 
 // Message body is used to stora any information that we want to send in an RPC
@@ -30,13 +30,10 @@ type Response struct {
 // Will open up a UDP listener on itself with a given port.
 // If a message is received on the listener it will use the response handler to do the
 // correct operations
-func Listen(ip string, port int, node Kademlia) {
-	addr := net.ParseIP(ip)
-	fmt.Println(addr)
-	server := net.UDPAddr{
-		Port: 10001,
-		IP:   addr,
-	}
+func (network *Network) Listen() {
+	server := GetUDPAddrFromContact(&network.Node.Me)
+	fmt.Printf("Listening on: %s:%d\n", server.IP, server.Port)
+
 	ServerConn, _ := net.ListenUDP("udp", &server)
 	defer ServerConn.Close()
 	buf := make([]byte, 1024)
@@ -44,9 +41,9 @@ func Listen(ip string, port int, node Kademlia) {
 		n, remoteaddr, _ := ServerConn.ReadFromUDP(buf)
 		res := unmarshallData(buf[0:n])
 
-		fmt.Println("Received RPC: ", res.RPC, "\nWith RPC ID: ", res.ID, "\nBody: ", res.Body, "\nFrom ", remoteaddr)
+		// fmt.Println("Received RPC: ", res.RPC, "\nWith RPC ID: ", res.ID, "\nBody: ", res.Body, "\nFrom ", remoteaddr)
 
-		responseMsg := responseHandler(res, node)
+		responseMsg := responseHandler(res, *network.Node)
 		marshalledMsg := marshallData(responseMsg)
 		sendResponse(ServerConn, remoteaddr, marshalledMsg)
 	}
@@ -153,13 +150,13 @@ func MessageHandler(contact *Contact, msg Response) (Response, error) {
 
 	//Conn.SetDeadline(time.Now().Add(deadline)) TODODODO
 
-	n, remoteaddr, _ := Conn.ReadFromUDP(buf)
+	n, _, _ := Conn.ReadFromUDP(buf)
 	res := unmarshallData(buf[0:n])
 
-	fmt.Println("msg id: ", msg.ID, "\nrec id: ", res.ID, "\nrec rpc : ", res.RPC)
+	// fmt.Println("msg id: ", msg.ID, "\nrec id: ", res.ID, "\nrec rpc : ", res.RPC)
 
 	if Validate(msg, res) {
-		fmt.Println("Received RPC: ", res.RPC, "\nWith RPC ID: ", res.ID, "\nBody: ", res.Body, "\nFrom ", remoteaddr)
+		// fmt.Println("Received RPC: ", res.RPC, "\nWith RPC ID: ", res.ID, "\nBody: ", res.Body, "\nFrom ", remoteaddr)
 	}
 	return res, nil
 }
@@ -211,7 +208,7 @@ func createPingResponse(res Response) Response {
 // Creates a find_node RPC response containing the nodes k closest contacts to a given ID
 func createFindNodeResponse(res Response, node Kademlia) Response {
 
-	contacts := node.Routingtable.FindClosestContacts(res.Body.KadID, 20)
+	contacts := node.Routingtable.FindClosestContacts(res.Body.KadID, bucketSize)
 
 	resBody := Msgbody{
 		Nodes: contacts,
@@ -234,7 +231,7 @@ func createFindDataResponse(res Response, node Kademlia) Response {
 	// else
 
 	contacts := node.Routingtable.FindClosestContacts(NewKademliaID(res.Body.Hash), 20)
-	fmt.Println(contacts)
+	// fmt.Println(contacts)
 
 	resBody := Msgbody{
 		Nodes: contacts,
@@ -246,7 +243,7 @@ func createFindDataResponse(res Response, node Kademlia) Response {
 		Body: resBody,
 	}
 
-	fmt.Println("%+v", responseMessage)
+	// fmt.Printf("%+v \n", responseMessage)
 
 	return responseMessage
 
