@@ -67,7 +67,7 @@ func cliresponseHandler(res Response) Response {
 
 	default:
 		return Response{
-			RPC: "Somethig went wrong: Invalid command",
+			RPC: "Something went wrong: Invalid command",
 		}
 	}
 }
@@ -84,6 +84,7 @@ func cliPing(data []byte) Response {
 
 // Will create a simple ping RPC response object
 func cliPut(data []byte) Response {
+	fmt.Println("data:", data)
 	responseMessage := Response{
 		RPC: "put",
 		//ID:  data,

@@ -38,7 +38,7 @@ func main() {
 Available commands:
 ping <IP-address> 
 put <file> 	(coming soon)
-ger <hash> 	(coming soon)
+get <hash> 	(coming soon)
 exit 		terminates program
 `)
 	for {
@@ -124,14 +124,14 @@ func put(localIP string, port int, filePath string) error {
 	h.Write(dat)
 	hashFile := h.Sum(nil)
 
-	res := Response{
+	req := Response{
 		RPC: "put",
 		Body: Msgbody{
 			Data: hashFile,
 		},
 	}
 
-	marshalledReq := marshallData(res)
+	marshalledReq := marshallData(req)
 
 	addr := net.ParseIP(localIP)
 
