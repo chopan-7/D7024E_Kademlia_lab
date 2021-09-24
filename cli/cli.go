@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,6 +13,11 @@ import (
 
 	"github.com/pkg/errors"
 )
+
+type CLIApp struct {
+	IP   string
+	Port int
+}
 
 // Message body is used to stora any information that we want to send in an RPC
 type Msgbody struct {
@@ -32,15 +38,15 @@ type Response struct {
 	over port 10002 and not recieve any incoming messages.
 */
 func main() {
-	localIP := GetOutboundIP().String()
+	app := &CLIApp{GetOutboundIP().String(), 10002}
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print(`Welcome to hecnet!: 
-Available commands:
-ping <IP-address> 
-put <file> 	(coming soon)
-get <hash> 	(coming soon)
-exit 		terminates program
-`)
+		Available commands:
+		put <file> 	(coming soon)
+		ger <hash> 	(coming soon)
+		exit 		terminates program
+	`)
+
 	for {
 		fmt.Print("Enter command:")
 		text, _ := reader.ReadString('\n') //read from terminal
@@ -48,7 +54,7 @@ exit 		terminates program
 
 		words := strings.Fields(text)
 
-		err := parser(localIP, words)
+		err := app.parser(words)
 
 		if err != nil {
 			fmt.Println(errors.Wrap(err, "Failed to parse command"))
@@ -56,94 +62,50 @@ exit 		terminates program
 	}
 }
 
-func parser(localIP string, cmd []string) error {
-	port := 10002
+func (app *CLIApp) parser(cmd []string) error {
 	if len(cmd) > 2 {
 		return errors.New("Invalid command!")
 	}
 	switch command := cmd[0]; command {
-	case "ping":
-		ipAddress := []byte(cmd[1])
-		ping(localIP, string(ipAddress), port)
 	case "put":
-		put(localIP, port, cmd[1])
+		app.put(cmd[1])
 	case "get":
-		get(localIP, port, cmd[1])
+		app.get(cmd[1])
 	case "exit":
-		exit(localIP, port)
+		app.exit()
 	default:
 		return errors.New(command + "is not a valid command...")
 	}
 	return nil
 }
 
-func ping(localIP, ip string, port int) error {
-	ip_addr := []byte(ip)
-	res := Response{
-		RPC: "ping",
-		Body: Msgbody{
-			Data: ip_addr,
-		},
-	}
-
-	marshalledReq := marshallData(res)
-
-	addr := net.ParseIP(localIP)
-	fmt.Println(addr)
-
-	server := net.UDPAddr{
-		Port: port,
-		IP:   addr,
-	}
-
-	Conn, err := net.DialUDP("udp", nil, &server)
-
-	if err != nil {
-		return errors.Wrap(err, "CLI: Failed to open connection to local ip:"+localIP)
-	}
-
-	defer Conn.Close()
-
-	Conn.Write([]byte(marshalledReq))
-	buf := make([]byte, 1024)
-	n, remoteaddr, _ := Conn.ReadFromUDP(buf)
-	rec := unmarshallData(buf[0:n])
-
-	fmt.Println("Received RPC: ", rec.RPC, "\nBody: ", rec.Body, "\nFrom ", remoteaddr)
-
-	return nil
-}
-
-func put(localIP string, port int, filePath string) error {
+func (app *CLIApp) put(filePath string) error {
 	dat, err := os.ReadFile(filePath)
 
 	if err != nil {
 		errors.Wrap(err, "Failed to read from file at:"+filePath)
 	}
-	h := sha1.New()
-	h.Write(dat)
-	hashFile := h.Sum(nil)
+
+	hashFile := HashData(string(dat))
 
 	req := Response{
 		RPC: "put",
 		Body: Msgbody{
-			Data: hashFile,
+			Data: []byte(hashFile),
 		},
 	}
 
 	marshalledReq := marshallData(req)
 
-	addr := net.ParseIP(localIP)
-
 	server := net.UDPAddr{
-		Port: port,
-		IP:   addr,
+		Port: app.Port,
+		IP:   net.ParseIP(app.IP),
 	}
 
 	Conn, err := net.DialUDP("udp", nil, &server)
 
 	if err != nil {
-		return errors.Wrap(err, "CLI: Failed to open connection to "+localIP)
+		return errors.Wrap(err, "CLI: Failed to open connection to "+app.IP)
 	}
 
 	defer Conn.Close()
@@ -158,31 +120,28 @@ func put(localIP string, port int, filePath string) error {
 	return nil
 }
 
-func get(localIP string, port int, data string) error {
-	h := sha1.New()
-	h.Write([]byte(data))
-	hashFile := h.Sum(nil)
+func (app *CLIApp) get(data string) error {
+
+	hashFile := HashData(data)
 
 	res := Response{
 		RPC: "get",
 		Body: Msgbody{
-			Data: hashFile,
+			Data: []byte(hashFile),
 		},
 	}
 
 	marshalledReq := marshallData(res)
 
-	addr := net.ParseIP(localIP)
-
 	server := net.UDPAddr{
-		Port: port,
-		IP:   addr,
+		Port: app.Port,
+		IP:   net.ParseIP(app.IP),
 	}
 
 	Conn, err := net.DialUDP("udp", nil, &server)
 
 	if err != nil {
-		return errors.Wrap(err, "CLI: Failed to open connection to local ip:"+localIP)
+		return errors.Wrap(err, "CLI: Failed to open connection to local ip:"+app.IP)
 	}
 
 	defer Conn.Close()
@@ -197,7 +156,7 @@ func get(localIP string, port int, data string) error {
 	return nil
 }
 
-func exit(localIP string, port int) error {
+func (app *CLIApp) exit() error {
 	res := Response{
 		RPC:  "exit",
 		Body: Msgbody{},
@@ -205,18 +164,17 @@ func exit(localIP string, port int) error {
 
 	marshalledReq := marshallData(res)
 
-	addr := net.ParseIP(localIP)
-	fmt.Println(addr)
+	fmt.Println(app.IP)
 
 	server := net.UDPAddr{
-		Port: port,
-		IP:   addr,
+		Port: app.Port,
+		IP:   net.ParseIP(app.IP),
 	}
 
 	Conn, err := net.DialUDP("udp", nil, &server)
 
 	if err != nil {
-		return errors.Wrap(err, "CLI: Failed to open connection to local ip:"+localIP)
+		return errors.Wrap(err, "CLI: Failed to open connection to local ip:"+app.IP)
 	}
 
 	defer Conn.Close()
@@ -253,4 +211,12 @@ func GetOutboundIP() net.IP {
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
 	return localAddr.IP
+}
+
+// Helper function for hashing data returing hexstring
+func HashData(data string) (hashString string) {
+	newHash := sha1.New()
+	newHash.Write([]byte(data))
+	hashString = hex.EncodeToString(newHash.Sum(nil))
+	return
 }

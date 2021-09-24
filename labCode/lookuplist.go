@@ -24,6 +24,72 @@ type LookupListItems struct {
 	Flag bool
 }
 
+// NewLookupList retuns a LookupList with k-closest nodes from the nodes routingtable.
+func (kademlia *Kademlia) NewLookupList(targetID *KademliaID) (ls *LookupList) {
+	ls = &LookupList{}
+	closestK := kademlia.Routingtable.FindClosestContacts(targetID, bucketSize)
+
+	for _, item := range closestK {
+		lsItem := &LookupListItems{item, false}
+		ls.Nodelist = append(ls.Nodelist, *lsItem)
+	}
+	return
+}
+
+// Len returns the lenght of the LookupList
+func (ls *LookupList) Len() int {
+	return len(ls.Nodelist)
+}
+
+func (lookuplist *LookupList) updateLookupList(targetID KademliaID, ch chan []Contact, net Network, wg sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		contacts := <-ch
+		tempList := LookupList{}         // holds the response []Contact
+		tempList2 := lookuplist.Nodelist // Copy of lookuplist
+		for _, contact := range contacts {
+			listItem := LookupListItems{contact, false}
+			tempList.Nodelist = append(tempList.Nodelist, listItem)
+		}
+
+		// sorting/filtering list
+		sortingList := LookupCandidates{}
+		sortingList.Append(tempList2)
+		sortingList.Append(tempList.Nodelist)
+		sortingList.Sort()
+
+		// update the lookuplist
+		if len(sortingList.Nodelist) < bucketSize {
+			lookuplist.Nodelist = sortingList.GetContacts(len(sortingList.Nodelist))
+		} else {
+			lookuplist.Nodelist = sortingList.GetContacts(bucketSize)
+		}
+
+		nextContact, Done := lookuplist.findNextLookup()
+		if Done {
+			return
+		} else {
+			go AsyncLookup(targetID, nextContact, net, ch)
+		}
+	}
+}
+
+// findNextLookup returns the next contact to visit in the LookupList.
+// It also returns true if all the contacts in the LookupList has been visisted.
+func (lookuplist *LookupList) findNextLookup() (Contact, bool) {
+	var nextItem Contact
+	done := true
+	for i, item := range lookuplist.Nodelist {
+		if item.Flag == false {
+			nextItem = item.Node
+			lookuplist.Nodelist[i].Flag = true
+			done = false
+			break
+		}
+	}
+	return nextItem, done
+}
+
 // Append an array of Contacts to the ContactCandidates if not duplicate
 func (candidates *LookupCandidates) Append(Contacts []LookupListItems) {
 	for _, newCandidate := range Contacts {
