@@ -6,6 +6,11 @@ import (
 	"os"
 )
 
+type CLI struct {
+	Node *Kademlia
+	Net  *Network
+}
+
 // Message body is used to stora any information that we want to send in an RPC
 type CLIMsgbody struct {
 	Data []byte // Hashed key value
@@ -23,13 +28,15 @@ type CLIResponse struct {
 	a response is generated and sent back to the CLI.
 
 */
-func CLIListen(ip string, port int) error {
-	addr := net.ParseIP(ip)
-	fmt.Println("CLI listener started")
+func (this *CLI) CLIListen() error {
+	addr := GetUDPAddrFromContact(&this.Node.Me)
+	port := 10002
+	fmt.Printf("CLI listener started on port %d", port)
 	server := net.UDPAddr{
-		Port: 10002,
-		IP:   addr,
+		Port: port,
+		IP:   addr.IP,
 	}
+
 	ServerConn, _ := net.ListenUDP("udp", &server)
 	defer ServerConn.Close()
 	buf := make([]byte, 1024)
@@ -39,7 +46,7 @@ func CLIListen(ip string, port int) error {
 
 		fmt.Println("Received RPC: ", res.RPC, "\nBody: ", res.Body, "\nFrom ", remoteaddr)
 
-		responseMsg := cliresponseHandler(res)
+		responseMsg := this.cliresponseHandler(res)
 
 		marshalledMsg := marshallData(responseMsg)
 		sendResponse(ServerConn, remoteaddr, marshalledMsg)
@@ -52,18 +59,16 @@ func CLIListen(ip string, port int) error {
 }
 
 // The response handler will return the correct response based on which RPC it received
-func cliresponseHandler(res Response) Response {
+func (this *CLI) cliresponseHandler(res Response) Response {
 	switch res.RPC {
-	case "ping":
-		return cliPing(res.Body.Data)
 	case "put":
-		return cliPut(res.Body.Data)
+		return this.cliPut(res.Body.Data)
 	case "get":
-		return cliGet(res.Body.Data)
+		return this.cliGet(res.Body.Data)
 
 		// TODO: if exit then shut down program
 	case "exit":
-		return exit()
+		return this.exit()
 
 	default:
 		return Response{
@@ -73,17 +78,7 @@ func cliresponseHandler(res Response) Response {
 }
 
 // Will create a simple ping RPC response object
-func cliPing(data []byte) Response {
-	// TestPing(string(data))
-	responseMessage := Response{
-		RPC: "ping",
-		//ID:  resID,
-	}
-	return responseMessage
-}
-
-// Will create a simple ping RPC response object
-func cliPut(data []byte) Response {
+func (this *CLI) cliPut(data []byte) Response {
 	responseMessage := Response{
 		RPC: "put",
 		//ID:  data,
@@ -92,7 +87,7 @@ func cliPut(data []byte) Response {
 }
 
 // Will create a simple ping RPC response object
-func cliGet(data []byte) Response {
+func (this *CLI) cliGet(data []byte) Response {
 	responseMessage := Response{
 		RPC: "get",
 		// ID:  data,
@@ -100,7 +95,7 @@ func cliGet(data []byte) Response {
 	return responseMessage
 }
 
-func exit() Response {
+func (this *CLI) exit() Response {
 
 	responseMessage := Response{
 		RPC: "exit",

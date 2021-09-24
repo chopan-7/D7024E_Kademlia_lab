@@ -45,6 +45,7 @@ func (network *Network) Listen() {
 		//fmt.Println("Received RPC: ", res.RPC, "\nWith RPC ID: ", res.ID, "\nBody: ", res.Body, "\nFrom ", remoteaddr)
 		network.Node.Routingtable.AddContact(*res.SendingContact)
 		responseMsg := network.responseHandler(res, *network.Node)
+
 		marshalledMsg := marshallData(responseMsg)
 
 		sendResponse(ServerConn, remoteaddr, marshalledMsg)
@@ -154,7 +155,7 @@ func (network *Network) MessageHandler(contact *Contact, msg Response) (Response
 	Conn.Write([]byte(marshalledMsg))
 	buf := make([]byte, 2048)
 
-	//Conn.SetDeadline(time.Now().Add(deadline)) TODODODO
+	// Conn.SetDeadline(time.Now().Add(deadline)) TODODODO
 
 	n, _, _ := Conn.ReadFromUDP(buf)
 	res := unmarshallData(buf[0:n])

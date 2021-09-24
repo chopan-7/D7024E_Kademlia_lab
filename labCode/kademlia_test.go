@@ -1,19 +1,16 @@
 package labCode
 
-import(
-	"fmt"
+import (
 	"testing"
-	"encoding/hex"
 )
 
-
 func TestNewKademliaNode(t *testing.T) {
-	testAddr := "localhost:8080"
-	nn := NewKademliaNode(testAddr)			// new node object
-	contact := nn.routingtable.me	// contact info
-	nodeID, _ := hex.DecodeString(testAddr)	// nodeID in hex
-	
-	if contact.ID.String() != testAddr {
-		t.Errorf("ID = %d; want: %d", contact.ID, testAddr)
+	testAddr := "172.19.0.3:10101"
+	testID := NewKademliaID("4bc578bd59ddbb005fc9ec86e3f44b9d60cf3f70")
+	nn := NewKademliaNode(testAddr) // new node object
+	contact := nn.Routingtable.me   // contact info
+
+	if !contact.ID.Equals(testID) {
+		t.Errorf("ID = %d; want: %d", contact.ID, testID)
 	}
 }
