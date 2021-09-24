@@ -49,13 +49,6 @@ func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Cont
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		listContact.updateLookupList(*targetID, ch, *net, wg)
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
 		shortlist.updateLookupList(*targetID, ch, *net, wg)
 	}()
 	wg.Wait()
