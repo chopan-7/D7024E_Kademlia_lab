@@ -46,6 +46,12 @@ func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Cont
 			go AsyncLookup(*targetID, shortlist.Nodelist[i].Node, *net, ch)
 		}
 	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		listContact.updateLookupList(*targetID, ch, *net, wg)
+	}()
+	wg.Wait()
 
 	wg.Add(1)
 	go func() {
@@ -78,7 +84,7 @@ func (kademlia *Kademlia) Store(data []byte) {
 // JoinNetwork takes knownpeer or bootstrapNode
 func (kademlia *Kademlia) JoinNetwork(knownpeer *Contact) {
 	kademlia.Routingtable.AddContact(*knownpeer)
-	kademlia.LookupContact(knownpeer.ID)
+	kademlia.LookupContact(kademlia.Me.ID)
 	fmt.Printf("Joining network")
 }
 

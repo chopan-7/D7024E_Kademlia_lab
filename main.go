@@ -7,6 +7,7 @@ import (
 	"net"
 )
 
+
 // Testing bootstrapnodes
 // func main() {
 // 	port := "10001"
@@ -18,6 +19,7 @@ import (
 // 	nn := lc.NewKademliaNode(localIPstr)
 // 	network := &lc.Network{}
 // 	network.Node = &nn
+
 
 // 	fmt.Printf("\nIP: %s\n", localIP.String())
 // 	// Join network if not a BootstrapNode
@@ -33,6 +35,7 @@ import (
 // 	}
 
 // }
+
 
 func main() {
 	ip := "192.168.10.165"
@@ -71,6 +74,7 @@ func main() {
 	net4 := lc.Network{&n4}
 	net5 := lc.Network{&n5}
 
+
 	go net0.Listen()
 	go net1.Listen()
 	go net2.Listen()
@@ -81,6 +85,7 @@ func main() {
 	closest := n0.LookupContact(n5.Me.ID)
 	fmt.Printf("Closest from n0 to n5: %s\n", closest)
 }
+
 
 func GetOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
