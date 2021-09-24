@@ -72,7 +72,7 @@ func (this *CLI) cliresponseHandler(res Response) Response {
 
 	default:
 		return Response{
-			RPC: "Somethig went wrong: Invalid command",
+			RPC: "Something went wrong: Invalid command",
 		}
 	}
 }

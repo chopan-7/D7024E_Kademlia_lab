@@ -46,6 +46,7 @@ func main() {
 		ger <hash> 	(coming soon)
 		exit 		terminates program
 	`)
+
 	for {
 		fmt.Print("Enter command:")
 		text, _ := reader.ReadString('\n') //read from terminal
@@ -87,14 +88,14 @@ func (app *CLIApp) put(filePath string) error {
 
 	hashFile := HashData(string(dat))
 
-	res := Response{
+	req := Response{
 		RPC: "put",
 		Body: Msgbody{
 			Data: []byte(hashFile),
 		},
 	}
 
-	marshalledReq := marshallData(res)
+	marshalledReq := marshallData(req)
 
 	server := net.UDPAddr{
 		Port: app.Port,
