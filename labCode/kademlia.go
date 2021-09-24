@@ -192,8 +192,8 @@ func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, t
 
 		// sorting/filtering list
 		sortingList := LookupCandidates{}
-		sortingList.Append(tempList.Nodelist)
-		sortingList.Append(tempList2)
+		sortingList.Append(tempList2)         // right order??
+		sortingList.Append(tempList.Nodelist) // right order??
 		sortingList.Sort()
 
 		// update the lookuplist
@@ -243,9 +243,9 @@ func (kademlia *Kademlia) Store(data []byte) {
 }
 
 // JoinNetwork takes knownpeer or bootstrapNode
-func (kademlia *Kademlia) JoinNetwork(knownpeer *Contact, nodeIP string) {
+func (kademlia *Kademlia) JoinNetwork(knownpeer *Contact) {
 	kademlia.Routingtable.AddContact(*knownpeer)
-	kademlia.LookupContact(knownpeer.ID)
+	kademlia.LookupContact(kademlia.Me.ID)
 	fmt.Printf("Joining network")
 }
 
