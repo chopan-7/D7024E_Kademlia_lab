@@ -53,8 +53,8 @@ func (lookuplist *LookupList) updateLookupList(targetID KademliaID, ch chan []Co
 
 		// sorting/filtering list
 		sortingList := LookupCandidates{}
-		sortingList.Append(tempList.Nodelist)
 		sortingList.Append(tempList2)
+		sortingList.Append(tempList.Nodelist)
 		sortingList.Sort()
 
 		// update the lookuplist
