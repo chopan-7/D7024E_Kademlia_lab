@@ -7,12 +7,12 @@ import (
 	"net"
 )
 
-// Testing bootstrapnodes
+//Testing bootstrapnodes
 func main() {
 	port := "10001"
 	localIP := GetOutboundIP()
 	localIPstr := localIP.String() + ":" + port // currentNode IP
-	bnIP := "172.18.0.2:10001"                  // bootstrapNode IP
+	bnIP := "172.19.0.2:10001"                  // bootstrapNode IP
 
 	// create a new node and init network with current node
 	nn := lc.NewKademliaNode(localIPstr)
@@ -25,7 +25,7 @@ func main() {
 		// Join network by sending LookupContact to bootstrapNode
 		bnContact := lc.NewContact(lc.NewKademliaID(lc.HashData(bnIP)), bnIP)
 		nn.JoinNetwork(&bnContact, localIPstr)
-		fmt.Printf("\nRoutingtable: %x\n", nn.Routingtable.FindClosestContacts(nn.Me.ID, 2))
+		fmt.Printf("\nRoutingtable: %v\n", nn.Routingtable.FindClosestContacts(nn.Me.ID, 10))
 	}
 
 	go network.Listen()
@@ -35,7 +35,7 @@ func main() {
 }
 
 // func main() {
-// 	ip := "192.168.10.165"
+// 	ip := "192.168.10.114"
 // 	//testnodes
 // 	n0 := lc.NewKademliaNode(ip + ":10000")
 // 	n1 := lc.NewKademliaNode(ip + ":10001")
@@ -64,12 +64,12 @@ func main() {
 // 	n5.Routingtable.AddContact(n4.Me)
 
 // 	// open Listener for all nodes
-// 	net0 := lc.Network{&n0}
-// 	net1 := lc.Network{&n1}
-// 	net2 := lc.Network{&n2}
-// 	net3 := lc.Network{&n3}
-// 	net4 := lc.Network{&n4}
-// 	net5 := lc.Network{&n5}
+// 	net0 := lc.Network{Node: &n0}
+// 	net1 := lc.Network{Node: &n1}
+// 	net2 := lc.Network{Node: &n2}
+// 	net3 := lc.Network{Node: &n3}
+// 	net4 := lc.Network{Node: &n4}
+// 	net5 := lc.Network{Node: &n5}
 
 // 	go net0.Listen()
 // 	go net1.Listen()
@@ -78,8 +78,10 @@ func main() {
 // 	go net4.Listen()
 // 	go net5.Listen()
 
-// 	closest := n0.LookupContact(n5.Me.ID)
+// 	closest := n5.LookupContact(n5.Me.ID)
 // 	fmt.Printf("Closest from n0 to n5: %s\n", closest)
+
+// 	fmt.Printf("\n\n FINAL ROUTINGTABLE FOR NODE 0: %v\n", n5.Routingtable.FindClosestContacts(n0.Me.ID, 10))
 // }
 
 func GetOutboundIP() net.IP {

@@ -56,13 +56,13 @@ func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Cont
 		for i := 0; i < alpha; i++ {
 			go asyncLookup(*targetID, listContact.Nodelist[i].Node, *net, ch)
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			listContact.updateLookupList(*targetID, ch, *net, wg)
-		}()
-		wg.Wait()
 	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		listContact.updateLookupList(*targetID, ch, *net, wg)
+	}()
+	wg.Wait()
 
 	// creating the result list
 	for _, insItem := range listContact.Nodelist {
@@ -82,6 +82,7 @@ func (lookuplist *LookupList) updateLookupList(targetID KademliaID, ch chan []Co
 		contacts := <-ch
 		tempList := LookupList{}         // holds the response []Contact
 		tempList2 := lookuplist.Nodelist // Copy of lookuplist
+
 		for _, contact := range contacts {
 			listItem := LookupListItems{contact, false}
 			tempList.Nodelist = append(tempList.Nodelist, listItem)
@@ -89,8 +90,8 @@ func (lookuplist *LookupList) updateLookupList(targetID KademliaID, ch chan []Co
 
 		// sorting/filtering list
 		sortingList := LookupCandidates{}
-		sortingList.Append(tempList.Nodelist)
 		sortingList.Append(tempList2)
+		sortingList.Append(tempList.Nodelist)
 		sortingList.Sort()
 
 		// update the lookuplist
@@ -135,7 +136,7 @@ func (kademlia *Kademlia) Store(data []byte) {
 // JoinNetwork takes knownpeer or bootstrapNode
 func (kademlia *Kademlia) JoinNetwork(knownpeer *Contact, nodeIP string) {
 	kademlia.Routingtable.AddContact(*knownpeer)
-	kademlia.LookupContact(knownpeer.ID)
+	kademlia.LookupContact(kademlia.Me.ID)
 	fmt.Printf("Joining network")
 }
 
