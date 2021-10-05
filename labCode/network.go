@@ -245,9 +245,10 @@ func (network *Network) createFindDataResponse(res Response, node Kademlia) Resp
 			Data: value,
 		}
 		responseMessage := Response{
-			RPC:  "find_data",
-			ID:   res.ID,
-			Body: resBody,
+			RPC:            "find_data",
+			SendingContact: &network.Node.Me,
+			ID:             res.ID,
+			Body:           resBody,
 		}
 		return responseMessage
 	}
@@ -260,9 +261,10 @@ func (network *Network) createFindDataResponse(res Response, node Kademlia) Resp
 	}
 
 	responseMessage := Response{
-		RPC:  "find_data",
-		ID:   res.ID,
-		Body: resBody,
+		RPC:            "find_data",
+		SendingContact: &network.Node.Me,
+		ID:             res.ID,
+		Body:           resBody,
 	}
 
 	// fmt.Printf("%+v \n", responseMessage)
@@ -274,11 +276,13 @@ func (network *Network) createFindDataResponse(res Response, node Kademlia) Resp
 // Creates a simple store_data RPC response to confirm that the data has been stored on the node
 func (network *Network) createStoreResponse(res Response) Response {
 	//Stores data in the node
-	network.Store[res.Body.Hash] = res.Body.Data
+	key := HashData(string(res.Body.Data))
+	network.Store[key] = res.Body.Data
 
 	responseMessage := Response{
-		RPC: "store_data",
-		ID:  res.ID,
+		RPC:            "store_data",
+		SendingContact: &network.Node.Me,
+		ID:             res.ID,
 	}
 	return responseMessage
 }

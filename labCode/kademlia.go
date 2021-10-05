@@ -30,7 +30,8 @@ func NewKademliaNode(address string) (node Kademlia) {
 
 // LookupContact finds the bucketSize closest nodes and returns a list of contacts
 func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Contact) {
-	net := &Network{}          // network object
+	net := &Network{} // network object
+	net.Node = kademlia
 	var wg sync.WaitGroup      // gorutine waiting pool
 	ch := make(chan []Contact) // channel for response
 
@@ -71,6 +72,7 @@ func AsyncLookup(targetID KademliaID, receiver Contact, net Network, ch chan []C
 // Given a hash from data, finds the closest node where the data is to be stored
 func (kademlia *Kademlia) LookupData(hash string) []byte {
 	net := &Network{}
+	net.Node = kademlia
 	var wg sync.WaitGroup // gorutine waiting pool
 
 	hashID := NewKademliaID(hash) // create kademlia ID from the hashed data
@@ -85,9 +87,13 @@ func (kademlia *Kademlia) LookupData(hash string) []byte {
 	ch := make(chan []Contact)      // channel -> returns contacts
 	targetData := make(chan []byte) // channel -> when the data is found it is communicated through this channel
 
-	// sending RPCs to the alpha nodes async
-	for i := 0; i < alpha; i++ {
-		go asyncLookupData(hash, shortlist.Nodelist[i].Node, *net, ch, targetData)
+	if shortlist.Len() < alpha {
+		go asyncLookupData(hash, shortlist.Nodelist[0].Node, *net, ch, targetData)
+	} else {
+		// sending RPCs to the alpha nodes async
+		for i := 0; i < alpha; i++ {
+			go asyncLookupData(hash, shortlist.Nodelist[i].Node, *net, ch, targetData)
+		}
 	}
 	wg.Add(1)
 	go func() {
@@ -117,7 +123,6 @@ func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, t
 
 		// data not nil = correct data is found
 		if targetData != nil {
-			fmt.Printf("\nFind data done!\n")
 			lookuplist.Data = targetData
 			return
 		}
@@ -169,14 +174,16 @@ func findNextLookupData(lookuplist *LookupList) (Contact, bool) {
 // ########################################################################### \\
 func (kademlia *Kademlia) Store(data []byte) {
 	net := &Network{}
+	net.Node = kademlia
 	hashFile := HashData(string(data))
 	hashID := NewKademliaID(hashFile)
+	fmt.Printf("\nStoring data...\n")
 
 	fileDestinations := kademlia.Routingtable.FindClosestContacts(hashID, bucketSize)
-
+	fmt.Printf("\nfile dest: %x", fileDestinations)
 	for _, target := range fileDestinations {
-		go net.SendStoreMessage(&target, data)
-		// net.SendStoreMessage(&target, data)
+		// go net.SendStoreMessage(&target, data)
+		net.SendStoreMessage(&target, data)
 	}
 
 }

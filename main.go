@@ -5,6 +5,7 @@ import (
 	lc "kademlia/labCode"
 	"log"
 	"net"
+	"time"
 )
 
 // Testing bootstrapnodes
@@ -25,18 +26,31 @@ func main() {
 
 	network := &lc.Network{}
 	network.Node = &me
+	network.Store = make(map[string][]byte)
 
 	fmt.Printf("\nIP: %s\n", localIP.String())
 	// Join network if not a BootstrapNode
 	if localIPstr != bnIP {
 		// Join network by sending LookupContact to bootstrapNode
 		me.JoinNetwork(&bnContact)
-		fmt.Printf("\nRoutingtable: %x\n", me.Routingtable.FindClosestContacts(me.Me.ID, 2))
+		fmt.Printf("\nRoutingtable: %s\n", me.Routingtable.FindClosestContacts(me.Me.ID, 1))
+	}
+
+	go network.Listen()
+
+	// test store function in bootstrapnode
+	testData := []byte("hej hej thomas!")
+	if localIPstr != bnIP {
+		me.Store(testData)
+	}
+	time.Sleep(10 * time.Second)
+	// test lookup data from other nodes
+	if localIPstr != bnIP {
+		lookupdata := me.LookupData(lc.HashData(string(testData)))
+		fmt.Printf("\nLookup from %s and found %s\n", localIPstr, lookupdata)
 	}
 
 	cliListener := &lc.CLI{&me, network}
-
-	go network.Listen()
 	cliListener.CLIListen()
 }
 
