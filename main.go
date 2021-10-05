@@ -17,17 +17,12 @@ func main() {
 	bnIP := "172.20.0.2:10001"                  // bootstrapNode IP
 
 	fmt.Println("Your IP is:", localIPstr)
-
-	bnID := lc.NewKademliaID(lc.HashData(bnIP))
-	bnContact := lc.NewContact(bnID, bnIP)
-
 	me := lc.NewKademliaNode(localIPstr)
-	me.JoinNetwork(&bnContact)
 
 	network := &lc.Network{}
 	network.Node = &me
 
-	cli := &lc.CLI{}
+	cli := &lc.CLI{&me, network}
 	fmt.Printf("\nIP: %s\n", localIP.String())
 	// Join network if not a BootstrapNode
 	if localIPstr != bnIP {
