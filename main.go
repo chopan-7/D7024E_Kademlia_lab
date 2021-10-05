@@ -5,42 +5,53 @@ import (
 	lc "kademlia/labCode"
 	"log"
 	"net"
+	"time"
 )
 
 // Testing bootstrapnodes
 func main() {
 
 	port := "10001"
-	cliPort := 10002
 
 	localIP := GetOutboundIP()
 	localIPstr := localIP.String() + ":" + port // currentNode IP
-	bnIP := "172.20.0.2:10001"                  // bootstrapNode IP
-
+	bnIP := "172.19.0.2:10001"                  // bootstrapNode IP
 
 	fmt.Println("Your IP is:", localIPstr)
 
-	bnIP := "172.18.0.2:10001" // bootstrapNode IP
 	bnID := lc.NewKademliaID(lc.HashData(bnIP))
 	bnContact := lc.NewContact(bnID, bnIP)
 
 	me := lc.NewKademliaNode(localIPstr)
-	me.JoinNetwork(&bnContact)
 
 	network := &lc.Network{}
 	network.Node = &me
+	network.Store = make(map[string][]byte)
 
 	fmt.Printf("\nIP: %s\n", localIP.String())
 	// Join network if not a BootstrapNode
 	if localIPstr != bnIP {
 		// Join network by sending LookupContact to bootstrapNode
-		bnContact := lc.NewContact(lc.NewKademliaID(lc.HashData(bnIP)), bnIP)
-		nn.JoinNetwork(&bnContact)
-		fmt.Printf("\nRoutingtable: %x\n", nn.Routingtable.FindClosestContacts(nn.Me.ID, 2))
+		me.JoinNetwork(&bnContact)
+		fmt.Printf("\nRoutingtable: %s\n", me.Routingtable.FindClosestContacts(me.Me.ID, 1))
 	}
 
 	go network.Listen()
-	lc.CLIListen(localIPstr, cliPort)
+
+	// test store function in bootstrapnode
+	testData := []byte("hej hej thomas!")
+	if localIPstr != bnIP {
+		me.Store(testData)
+	}
+	time.Sleep(10 * time.Second)
+	// test lookup data from other nodes
+	if localIPstr != bnIP {
+		lookupdata := me.LookupData(lc.HashData(string(testData)))
+		fmt.Printf("\nLookup from %s and found %s\n", localIPstr, lookupdata)
+	}
+
+	cliListener := &lc.CLI{&me, network}
+	cliListener.CLIListen()
 }
 
 func GetOutboundIP() net.IP {
