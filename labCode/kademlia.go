@@ -79,31 +79,31 @@ func (kademlia *Kademlia) LookupData(hash string) []byte {
 		that need to be traversed in order to find the data as well
 		as data itself.
 	*/
-	listContact := &LookupList{}                                               // return listContact.Data
-	myClosest := kademlia.Routingtable.FindClosestContacts(hashID, bucketSize) // closest nodes to data hash
+
+	shortlist := kademlia.NewLookupList(hashID)
 
 	ch := make(chan []Contact)      // channel -> returns contacts
 	targetData := make(chan []byte) // channel -> when the data is found it is communicated through this channel
 
-	// Find the k closest node to target
-	for _, insItem := range myClosest {
-		lookupitem := &LookupListItems{insItem, false}
-		listContact.Nodelist = append(listContact.Nodelist, *lookupitem)
-	}
+	/* 	// Find the k closest node to target
+	   	for _, insItem := range myClosest {
+	   		lookupitem := &LookupListItems{insItem, false}
+	   		listContact.Nodelist = append(listContact.Nodelist, *lookupitem)
+	   	} */
 
 	// sending RPCs to the alpha nodes async
 	for i := 0; i < alpha; i++ {
-		go asyncLookupData(hash, listContact.Nodelist[i].Node, *net, ch, targetData)
+		go asyncLookupData(hash, shortlist.Nodelist[i].Node, *net, ch, targetData)
 	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		listContact.updateLookupData(hash, ch, targetData, *net, wg)
+		shortlist.updateLookupData(hash, ch, targetData, *net, wg)
 	}()
 	wg.Wait()
 
 	// creating the result list
-	return listContact.Data
+	return shortlist.Data
 }
 
 // runs SendFindDataMessage and loads response into two channels:
@@ -120,11 +120,14 @@ func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, t
 	for {
 		contacts := <-ch
 		targetData := <-target
+
+		// data not nil = correct data is found
 		if targetData != nil {
 			fmt.Printf("\nFind data done!\n")
 			lookuplist.Data = targetData
 			return
 		}
+
 		tempList := LookupList{}         // holds the response []Contact
 		tempList2 := lookuplist.Nodelist // Copy of lookuplist
 		for _, contact := range contacts {
@@ -145,7 +148,7 @@ func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, t
 			lookuplist.Nodelist = sortingList.GetContacts(bucketSize)
 		}
 
-		nextContact, Done := findNextLookup(lookuplist)
+		nextContact, Done := lookuplist.findNextLookup()
 		if Done {
 			fmt.Printf("\nLookupdone!\n")
 			return
