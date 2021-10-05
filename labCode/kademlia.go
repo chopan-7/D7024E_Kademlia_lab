@@ -85,12 +85,6 @@ func (kademlia *Kademlia) LookupData(hash string) []byte {
 	ch := make(chan []Contact)      // channel -> returns contacts
 	targetData := make(chan []byte) // channel -> when the data is found it is communicated through this channel
 
-	/* 	// Find the k closest node to target
-	   	for _, insItem := range myClosest {
-	   		lookupitem := &LookupListItems{insItem, false}
-	   		listContact.Nodelist = append(listContact.Nodelist, *lookupitem)
-	   	} */
-
 	// sending RPCs to the alpha nodes async
 	for i := 0; i < alpha; i++ {
 		go asyncLookupData(hash, shortlist.Nodelist[i].Node, *net, ch, targetData)
