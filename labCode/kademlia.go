@@ -30,7 +30,7 @@ func NewKademliaNode(address string) (node Kademlia) {
 
 // LookupContact finds the bucketSize closest nodes and returns a list of contacts
 func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Contact) {
-	net := &Network{kademlia}  // network object
+	net := &Network{}          // network object
 	var wg sync.WaitGroup      // gorutine waiting pool
 	ch := make(chan []Contact) // channel for response
 
@@ -70,7 +70,7 @@ func AsyncLookup(targetID KademliaID, receiver Contact, net Network, ch chan []C
 
 // Given a hash from data, finds the closest node where the data is to be stored
 func (kademlia *Kademlia) LookupData(hash string) []byte {
-	net := &Network{kademlia}
+	net := &Network{}
 	var wg sync.WaitGroup // gorutine waiting pool
 
 	hashID := NewKademliaID(hash) // create kademlia ID from the hashed data
@@ -168,7 +168,7 @@ func findNextLookupData(lookuplist *LookupList) (Contact, bool) {
 
 // ########################################################################### \\
 func (kademlia *Kademlia) Store(data []byte) {
-	net := &Network{kademlia}
+	net := &Network{}
 	hashFile := HashData(string(data))
 	hashID := NewKademliaID(hashFile)
 
