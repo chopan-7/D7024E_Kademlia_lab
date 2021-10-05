@@ -10,7 +10,8 @@ import (
 )
 
 type Network struct {
-	Node *Kademlia
+	Node  *Kademlia
+	Store map[string][]byte
 }
 
 // Message body is used to stora any information that we want to send in an RPC
@@ -237,9 +238,19 @@ func (network *Network) createFindNodeResponse(res Response, node Kademlia) Resp
 // Or will return the 20 closest contacts to the hashed value ID
 func (network *Network) createFindDataResponse(res Response, node Kademlia) Response {
 	// Function for finding data in node
-	// if data in node:
+	value, containsHash := network.Store[res.Body.Hash]
 
-	// else
+	if containsHash {
+		resBody := Msgbody{
+			Data: value,
+		}
+		responseMessage := Response{
+			RPC:  "find_data",
+			ID:   res.ID,
+			Body: resBody,
+		}
+		return responseMessage
+	}
 
 	contacts := node.Routingtable.FindClosestContacts(NewKademliaID(res.Body.Hash), 20)
 	// fmt.Println(contacts)
@@ -263,6 +274,7 @@ func (network *Network) createFindDataResponse(res Response, node Kademlia) Resp
 // Creates a simple store_data RPC response to confirm that the data has been stored on the node
 func (network *Network) createStoreResponse(res Response) Response {
 	//Stores data in the node
+	network.Store[res.Body.Hash] = res.Body.Data
 
 	responseMessage := Response{
 		RPC: "store_data",

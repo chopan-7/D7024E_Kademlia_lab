@@ -11,16 +11,13 @@ import (
 func main() {
 
 	port := "10001"
-	cliPort := 10002
 
 	localIP := GetOutboundIP()
 	localIPstr := localIP.String() + ":" + port // currentNode IP
 	bnIP := "172.20.0.2:10001"                  // bootstrapNode IP
 
-
 	fmt.Println("Your IP is:", localIPstr)
 
-	bnIP := "172.18.0.2:10001" // bootstrapNode IP
 	bnID := lc.NewKademliaID(lc.HashData(bnIP))
 	bnContact := lc.NewContact(bnID, bnIP)
 
@@ -30,17 +27,18 @@ func main() {
 	network := &lc.Network{}
 	network.Node = &me
 
+	cli := &lc.CLI{}
 	fmt.Printf("\nIP: %s\n", localIP.String())
 	// Join network if not a BootstrapNode
 	if localIPstr != bnIP {
 		// Join network by sending LookupContact to bootstrapNode
 		bnContact := lc.NewContact(lc.NewKademliaID(lc.HashData(bnIP)), bnIP)
-		nn.JoinNetwork(&bnContact)
-		fmt.Printf("\nRoutingtable: %x\n", nn.Routingtable.FindClosestContacts(nn.Me.ID, 2))
+		me.JoinNetwork(&bnContact)
+		fmt.Printf("\nRoutingtable: %x\n", me.Routingtable.FindClosestContacts(me.Me.ID, 2))
 	}
 
 	go network.Listen()
-	lc.CLIListen(localIPstr, cliPort)
+	cli.CLIListen()
 }
 
 func GetOutboundIP() net.IP {
