@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	lc "kademlia/labCode"
 	"log"
 	"net"
 	"os"
@@ -19,15 +20,15 @@ type CLIApp struct {
 	Port int
 }
 
-// Message body is used to stora any information that we want to send in an RPC
-type Msgbody struct {
-	IP   string
-	Data []byte // Hashed key value
+// Message body is used to store any information that we want to send in an RPC
+type CLIMsgBody struct {
+	Data        []byte // Hashed key value
+	DataContact lc.Contact
 }
 
-type Response struct {
+type CLIResponse struct {
 	RPC  string // String representing what kind of rpc the message is
-	Body Msgbody
+	Body CLIMsgBody
 }
 
 /*
@@ -40,15 +41,10 @@ type Response struct {
 func main() {
 	app := &CLIApp{GetOutboundIP().String(), 10002}
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print(`Welcome to hecnet!: 
-		Available commands:
-		put <file> 	(coming soon)
-		ger <hash> 	(coming soon)
-		exit 		terminates program
-	`)
+	fmt.Printf("Welcome to kademlia network!\nAvailable commands:\nput <string> (stores data on k closest nodes to hash)	\nget <hash> (fetches data object with this hash if it is stored in the network)	\nexit (terminates this node)\n")
 
 	for {
-		fmt.Print("Enter command:")
+		fmt.Printf("\nEnter command:")
 		text, _ := reader.ReadString('\n') //read from terminal
 		text = strings.TrimRight(text, "\n")
 
@@ -64,7 +60,7 @@ func main() {
 
 func (app *CLIApp) parser(cmd []string) error {
 	if len(cmd) > 2 {
-		return errors.New("Invalid command!")
+		return errors.New("Too many arguments")
 	}
 	switch command := cmd[0]; command {
 	case "put":
@@ -79,23 +75,16 @@ func (app *CLIApp) parser(cmd []string) error {
 	return nil
 }
 
-func (app *CLIApp) put(filePath string) error {
-	dat, err := os.ReadFile(filePath)
+func (app *CLIApp) put(data string) error {
 
-	if err != nil {
-		errors.Wrap(err, "Failed to read from file at:"+filePath)
-	}
-
-	hashFile := HashData(string(dat))
-
-	req := Response{
+	req := CLIResponse{
 		RPC: "put",
-		Body: Msgbody{
-			Data: []byte(hashFile),
+		Body: CLIMsgBody{
+			Data: []byte(data),
 		},
 	}
 
-	marshalledReq := marshallData(req)
+	marshalledReq := marshallCLIData(req)
 
 	server := net.UDPAddr{
 		Port: app.Port,
@@ -112,26 +101,30 @@ func (app *CLIApp) put(filePath string) error {
 
 	Conn.Write([]byte(marshalledReq))
 	buf := make([]byte, 1024)
-	n, remoteaddr, _ := Conn.ReadFromUDP(buf)
-	rec := unmarshallData(buf[0:n])
+	n, _, _ := Conn.ReadFromUDP(buf)
+	rec := unmarshallCLIData(buf[0:n])
 
-	fmt.Println("Received RPC: ", rec.RPC, "\nBody: ", rec.Body, "\nFrom ", remoteaddr)
+	hashData := string(rec.Body.Data)
+
+	if rec.RPC == req.RPC {
+		fmt.Printf("\nSuccesfully stored data with hash: %s\n", hashData)
+	} else {
+		fmt.Println("Something went wrong")
+	}
 
 	return nil
 }
 
-func (app *CLIApp) get(data string) error {
+func (app *CLIApp) get(hash string) error {
 
-	hashFile := HashData(data)
-
-	res := Response{
+	req := CLIResponse{
 		RPC: "get",
-		Body: Msgbody{
-			Data: []byte(hashFile),
+		Body: CLIMsgBody{
+			Data: []byte(hash),
 		},
 	}
 
-	marshalledReq := marshallData(res)
+	marshalledReq := marshallCLIData(req)
 
 	server := net.UDPAddr{
 		Port: app.Port,
@@ -148,23 +141,32 @@ func (app *CLIApp) get(data string) error {
 
 	Conn.Write([]byte(marshalledReq))
 	buf := make([]byte, 1024)
-	n, remoteaddr, _ := Conn.ReadFromUDP(buf)
-	rec := unmarshallData(buf[0:n])
+	n, _, _ := Conn.ReadFromUDP(buf)
+	rec := unmarshallCLIData(buf[0:n])
 
-	fmt.Println("Received RPC: ", rec.RPC, "\nBody: ", rec.Body, "\nFrom ", remoteaddr)
+	receivedData := string(rec.Body.Data)
+	dataContact := rec.Body.DataContact
+
+	if rec.RPC == req.RPC {
+		if rec.Body.Data == nil {
+			fmt.Printf("\nNo data found in the network with that hash\n")
+		} else {
+			fmt.Printf("\nFound data: %s\nFrom contact: %s\n", receivedData, &dataContact)
+		}
+	} else {
+		fmt.Println("Something went wrong")
+	}
 
 	return nil
 }
 
 func (app *CLIApp) exit() error {
-	res := Response{
+	res := CLIResponse{
 		RPC:  "exit",
-		Body: Msgbody{},
+		Body: CLIMsgBody{},
 	}
 
-	marshalledReq := marshallData(res)
-
-	fmt.Println(app.IP)
+	marshalledReq := marshallCLIData(res)
 
 	server := net.UDPAddr{
 		Port: app.Port,
@@ -181,22 +183,24 @@ func (app *CLIApp) exit() error {
 
 	Conn.Write([]byte(marshalledReq))
 	buf := make([]byte, 1024)
-	n, remoteaddr, _ := Conn.ReadFromUDP(buf)
-	rec := unmarshallData(buf[0:n])
-
-	fmt.Println("Received RPC: ", rec.RPC, "\nBody: ", rec.Body, "\nFrom ", remoteaddr)
-	os.Exit(1)
+	n, _, _ := Conn.ReadFromUDP(buf)
+	rec := unmarshallCLIData(buf[0:n])
+	if rec.RPC == "exit" {
+		fmt.Printf("\nTerminating node with ip: %s\n", app.IP)
+		os.Exit(1)
+	}
 	return nil
 }
 
 // Will marshall the response object into json
-func marshallData(data Response) []byte {
+func marshallCLIData(data CLIResponse) []byte {
 	marshalledData, _ := json.Marshal(data)
 	return marshalledData
 }
 
-func unmarshallData(data []byte) Response {
-	var unmarshalledData Response
+// Will unmarshall the byte stream into json
+func unmarshallCLIData(data []byte) CLIResponse {
+	var unmarshalledData CLIResponse
 	json.Unmarshal([]byte(data), &unmarshalledData)
 	return unmarshalledData
 }

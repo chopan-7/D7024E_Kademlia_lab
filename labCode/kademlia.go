@@ -32,7 +32,6 @@ func NewKademliaNode(address string) (node Kademlia) {
 func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Contact) {
 	net := &Network{} // network object
 	net.Node = kademlia
-	var wg sync.WaitGroup      // gorutine waiting pool
 	ch := make(chan []Contact) // channel for response
 
 	// shortlist of k-closest nodes
@@ -47,12 +46,8 @@ func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Cont
 			go AsyncLookup(*targetID, shortlist.Nodelist[i].Node, *net, ch)
 		}
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		shortlist.updateLookupList(*targetID, ch, *net, wg)
-	}()
-	wg.Wait()
+
+	shortlist.updateLookupList(*targetID, ch, *net)
 
 	// creating the result list
 	for _, insItem := range shortlist.Nodelist {
@@ -70,7 +65,7 @@ func AsyncLookup(targetID KademliaID, receiver Contact, net Network, ch chan []C
 // ########################################################################### \\
 
 // Given a hash from data, finds the closest node where the data is to be stored
-func (kademlia *Kademlia) LookupData(hash string) []byte {
+func (kademlia *Kademlia) LookupData(hash string) ([]byte, Contact) {
 	net := &Network{}
 	net.Node = kademlia
 	var wg sync.WaitGroup // gorutine waiting pool
@@ -84,47 +79,45 @@ func (kademlia *Kademlia) LookupData(hash string) []byte {
 
 	shortlist := kademlia.NewLookupList(hashID)
 
-	ch := make(chan []Contact)      // channel -> returns contacts
-	targetData := make(chan []byte) // channel -> when the data is found it is communicated through this channel
+	ch := make(chan []Contact)          // channel -> returns contacts
+	targetData := make(chan []byte)     // channel -> when the data is found it is communicated through this channel
+	dataContactCh := make(chan Contact) // channel that only takes the contact that returned the data
 
 	if shortlist.Len() < alpha {
-		go asyncLookupData(hash, shortlist.Nodelist[0].Node, *net, ch, targetData)
+		go asyncLookupData(hash, shortlist.Nodelist[0].Node, *net, ch, targetData, dataContactCh)
 	} else {
 		// sending RPCs to the alpha nodes async
 		for i := 0; i < alpha; i++ {
-			go asyncLookupData(hash, shortlist.Nodelist[i].Node, *net, ch, targetData)
+			go asyncLookupData(hash, shortlist.Nodelist[i].Node, *net, ch, targetData, dataContactCh)
 		}
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		shortlist.updateLookupData(hash, ch, targetData, *net, wg)
-	}()
-	wg.Wait()
 
-	// creating the result list
-	return shortlist.Data
+	data, con := shortlist.updateLookupData(hash, ch, targetData, dataContactCh, *net, wg)
+
+	// creating the resultdata, con :=shortlist.updateLook list
+	return data, con
 }
 
 // runs SendFindDataMessage and loads response into two channels:
 // ch -> contacts close to the data hash
 // target -> the target data
-func asyncLookupData(hash string, receiver Contact, net Network, ch chan []Contact, target chan []byte) {
-	targetData, reslist, _ := net.SendFindDataMessage(&receiver, hash)
+func asyncLookupData(hash string, receiver Contact, net Network, ch chan []Contact, target chan []byte, dataContactCh chan Contact) {
+	targetData, reslist, dataContact, _ := net.SendFindDataMessage(&receiver, hash)
 	ch <- reslist
 	target <- targetData
+	dataContactCh <- dataContact
 }
 
-func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, target chan []byte, net Network, wg sync.WaitGroup) {
-	defer wg.Done()
+func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, target chan []byte, dataContactCh chan Contact, net Network, wg sync.WaitGroup) ([]byte, Contact) {
 	for {
 		contacts := <-ch
 		targetData := <-target
+		dataContact := <-dataContactCh
 
 		// data not nil = correct data is found
 		if targetData != nil {
 			lookuplist.Data = targetData
-			return
+			return targetData, dataContact
 		}
 
 		tempList := LookupList{}         // holds the response []Contact
@@ -149,10 +142,9 @@ func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, t
 
 		nextContact, Done := lookuplist.findNextLookup()
 		if Done {
-			fmt.Printf("\nLookupdone!\n")
-			return
+			return nil, Contact{}
 		} else {
-			go asyncLookupData(hash, nextContact, net, ch, target)
+			go asyncLookupData(hash, nextContact, net, ch, target, dataContactCh)
 		}
 	}
 }
@@ -177,12 +169,9 @@ func (kademlia *Kademlia) Store(data []byte) {
 	net.Node = kademlia
 	hashFile := HashData(string(data))
 	hashID := NewKademliaID(hashFile)
-	fmt.Printf("\nStoring data...\n")
 
 	fileDestinations := kademlia.Routingtable.FindClosestContacts(hashID, bucketSize)
-	fmt.Printf("\nfile dest: %x", fileDestinations)
 	for _, target := range fileDestinations {
-		// go net.SendStoreMessage(&target, data)
 		net.SendStoreMessage(&target, data)
 	}
 

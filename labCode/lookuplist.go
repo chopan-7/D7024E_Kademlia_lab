@@ -41,8 +41,7 @@ func (ls *LookupList) Len() int {
 	return len(ls.Nodelist)
 }
 
-func (lookuplist *LookupList) updateLookupList(targetID KademliaID, ch chan []Contact, net Network, wg sync.WaitGroup) {
-	defer wg.Done()
+func (lookuplist *LookupList) updateLookupList(targetID KademliaID, ch chan []Contact, net Network) {
 	for {
 		contacts := <-ch
 		tempList := LookupList{}         // holds the response []Contact
