@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 )
 
 type Network struct {
-	Node  *Kademlia
-	Store map[string][]byte
+	Node       *Kademlia
+	Store      map[string][]byte
+	TimeStamps map[string]time.Time
 }
 
 // Message body is used to stora any information that we want to send in an RPC
@@ -241,6 +243,7 @@ func (network *Network) createFindDataResponse(res Response, node Kademlia) Resp
 	value, containsHash := network.Store[res.Body.Hash]
 
 	if containsHash {
+		network.TimeStamps[res.Body.Hash] = time.Now()
 		resBody := Msgbody{
 			Data: value,
 		}

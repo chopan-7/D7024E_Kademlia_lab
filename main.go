@@ -5,7 +5,6 @@ import (
 	lc "kademlia/labCode"
 	"log"
 	"net"
-	"time"
 )
 
 // Testing bootstrapnodes
@@ -39,7 +38,7 @@ func main() {
 	go network.Listen()
 
 	// test store function in bootstrapnode
-	testData := []byte("hej hej thomas!")
+	/* testData := []byte("hej hej thomas!")
 	if localIPstr != bnIP {
 		me.Store(testData)
 	}
@@ -48,7 +47,10 @@ func main() {
 	if localIPstr != bnIP {
 		lookupdata := me.LookupData(lc.HashData(string(testData)))
 		fmt.Printf("\nLookup from %s and found %s\n", localIPstr, lookupdata)
-	}
+	} */
+
+	sch := lc.Scheduler{}
+	sch.RunningRoutine()
 
 	cliListener := &lc.CLI{&me, network}
 	cliListener.CLIListen()
