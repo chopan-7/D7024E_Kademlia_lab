@@ -32,26 +32,12 @@ func main() {
 	if localIPstr != bnIP {
 		// Join network by sending LookupContact to bootstrapNode
 		me.JoinNetwork(&bnContact)
-		fmt.Printf("\nRoutingtable: %s\n", me.Routingtable.FindClosestContacts(me.Me.ID, 1))
+		fmt.Printf("\nRoutingtable: %s\n", me.Routingtable.FindClosestContacts(me.Me.ID, 5))
 	}
 
 	go network.Listen()
-
-	// test store function in bootstrapnode
-	/* testData := []byte("hej hej thomas!")
-	if localIPstr != bnIP {
-		me.Store(testData)
-	}
-	time.Sleep(10 * time.Second)
-	// test lookup data from other nodes
-	if localIPstr != bnIP {
-		lookupdata := me.LookupData(lc.HashData(string(testData)))
-		fmt.Printf("\nLookup from %s and found %s\n", localIPstr, lookupdata)
-	} */
-
 	sch := lc.Scheduler{}
 	sch.RunningRoutine()
-
 	cliListener := &lc.CLI{&me, network}
 	cliListener.CLIListen()
 }

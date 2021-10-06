@@ -40,12 +40,11 @@ func (network *Network) Listen() {
 
 	ServerConn, _ := net.ListenUDP("udp", &server)
 	defer ServerConn.Close()
-	buf := make([]byte, 1024)
+	buf := make([]byte, 2048)
 	for {
 		n, remoteaddr, _ := ServerConn.ReadFromUDP(buf)
 		res := unmarshallData(buf[0:n])
 
-		//fmt.Println("Received RPC: ", res.RPC, "\nWith RPC ID: ", res.ID, "\nBody: ", res.Body, "\nFrom ", remoteaddr)
 		network.Node.Routingtable.AddContact(*res.SendingContact)
 		responseMsg := network.responseHandler(res, *network.Node)
 
@@ -99,7 +98,7 @@ func (network *Network) SendFindContactMessage(contact *Contact, kadID *Kademlia
 }
 
 // Creates correct message object for find_data RPC
-func (network *Network) SendFindDataMessage(contact *Contact, hash string) ([]byte, []Contact, error) {
+func (network *Network) SendFindDataMessage(contact *Contact, hash string) ([]byte, []Contact, Contact, error) {
 	body := Msgbody{
 		Hash: hash, // Hashed id is put in the body
 	}
@@ -116,7 +115,7 @@ func (network *Network) SendFindDataMessage(contact *Contact, hash string) ([]by
 		errors.Wrap(err, "Something went wrong")
 	}
 
-	return res.Body.Data, res.Body.Nodes, nil
+	return res.Body.Data, res.Body.Nodes, *res.SendingContact, nil
 }
 
 // Creates the correct message for a store_data RPC
@@ -163,11 +162,8 @@ func (network *Network) MessageHandler(contact *Contact, msg Response) (Response
 	n, _, _ := Conn.ReadFromUDP(buf)
 	res := unmarshallData(buf[0:n])
 
-	// fmt.Println("msg id: ", msg.ID, "\nrec id: ", res.ID, "\nrec rpc : ", res.RPC)
-
 	if Validate(msg, res) {
 		network.Node.Routingtable.AddContact(*res.SendingContact)
-		// fmt.Println("Received RPC: ", res.RPC, "\nWith RPC ID: ", res.ID, "\nBody: ", res.Body, "\nFrom ", remoteaddr)
 	}
 	return res, nil
 }
@@ -239,8 +235,10 @@ func (network *Network) createFindNodeResponse(res Response, node Kademlia) Resp
 // Creates a find_data RPC response containing only the data requested if it is stored in the node
 // Or will return the 20 closest contacts to the hashed value ID
 func (network *Network) createFindDataResponse(res Response, node Kademlia) Response {
-	// Function for finding data in node
-	value, containsHash := network.Store[res.Body.Hash]
+	// Gets the data object from the map if the hash matches a key
+	var value []byte
+	var containsHash bool
+	value, containsHash = network.Store[res.Body.Hash]
 
 	if containsHash {
 		network.TimeStamps[res.Body.Hash] = time.Now()
@@ -257,7 +255,6 @@ func (network *Network) createFindDataResponse(res Response, node Kademlia) Resp
 	}
 
 	contacts := node.Routingtable.FindClosestContacts(NewKademliaID(res.Body.Hash), 20)
-	// fmt.Println(contacts)
 
 	resBody := Msgbody{
 		Nodes: contacts,
@@ -270,14 +267,13 @@ func (network *Network) createFindDataResponse(res Response, node Kademlia) Resp
 		Body:           resBody,
 	}
 
-	// fmt.Printf("%+v \n", responseMessage)
-
 	return responseMessage
 
 }
 
 // Creates a simple store_data RPC response to confirm that the data has been stored on the node
 func (network *Network) createStoreResponse(res Response) Response {
+
 	//Stores data in the node
 	key := HashData(string(res.Body.Data))
 	network.Store[key] = res.Body.Data
@@ -287,6 +283,7 @@ func (network *Network) createStoreResponse(res Response) Response {
 		SendingContact: &network.Node.Me,
 		ID:             res.ID,
 	}
+
 	return responseMessage
 }
 
