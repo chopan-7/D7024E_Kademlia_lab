@@ -164,21 +164,21 @@ func findNextLookupData(lookuplist *LookupList) (Contact, bool) {
 	return nextItem, done
 }
 
-// ########################################################################### \\
+// Store takes byte slice as input and stores the data on the k-closes nodes to the hased data KademliaID.
 func (kademlia *Kademlia) Store(data []byte) {
 	net := &Network{}
 	net.Node = kademlia
 	hashFile := HashData(string(data))
 	hashID := NewKademliaID(hashFile)
 
-	fileDestinations := kademlia.Routingtable.FindClosestContacts(hashID, bucketSize)
+	fileDestinations := kademlia.LookupContact(hashID)
 	for _, target := range fileDestinations {
 		net.SendStoreMessage(&target, data)
 	}
 
 }
 
-// JoinNetwork takes knownpeer or bootstrapNode
+// JoinNetwork takes knownpeer or bootstrapNode as input and joins the network.
 func (kademlia *Kademlia) JoinNetwork(knownpeer *Contact) {
 	kademlia.Routingtable.AddContact(*knownpeer)
 	kademlia.LookupContact(kademlia.Me.ID)
