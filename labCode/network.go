@@ -273,7 +273,9 @@ func (network *Network) createStoreResponse(res Response) Response {
 
 	//Stores data in the node
 	key := HashData(string(res.Body.Data))
+	fmt.Printf("\nDataStore before: %x\n", network.Node.DataStore)
 	network.Node.DataStore[key] = res.Body.Data
+	fmt.Printf("\nDataStore after: %x\n", network.Node.DataStore)
 
 	responseMessage := Response{
 		RPC:            "store_data",
