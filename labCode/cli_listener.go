@@ -52,7 +52,7 @@ func (this *CLI) CLIListen() error {
 		sendResponse(ServerConn, remoteaddr, marshalledMsg)
 		if responseMsg.RPC == "exit" {
 			fmt.Println("Exiting program...")
-			os.Exit(1)
+			os.Exit(0)
 		}
 	}
 }

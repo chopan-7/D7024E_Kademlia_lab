@@ -16,7 +16,6 @@ type LookupCandidates struct {
 type LookupList struct {
 	Nodelist []LookupListItems
 	Mux      sync.Mutex
-	Data     []byte
 }
 
 type LookupListItems struct {
