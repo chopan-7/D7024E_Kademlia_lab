@@ -10,8 +10,7 @@ import (
 )
 
 type Network struct {
-	Node  *Kademlia
-	Store map[string][]byte
+	Node *Kademlia
 }
 
 // Message body is used to stora any information that we want to send in an RPC
@@ -236,7 +235,7 @@ func (network *Network) createFindDataResponse(res Response, node Kademlia) Resp
 	// Gets the data object from the map if the hash matches a key
 	var value []byte
 	var containsHash bool
-	value, containsHash = network.Store[res.Body.Hash]
+	value, containsHash = network.Node.DataStore[res.Body.Hash]
 
 	if containsHash {
 
@@ -274,7 +273,7 @@ func (network *Network) createStoreResponse(res Response) Response {
 
 	//Stores data in the node
 	key := HashData(string(res.Body.Data))
-	network.Store[key] = res.Body.Data
+	network.Node.DataStore[key] = res.Body.Data
 
 	responseMessage := Response{
 		RPC:            "store_data",

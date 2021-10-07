@@ -14,7 +14,7 @@ func main() {
 
 	localIP := GetOutboundIP()
 	localIPstr := localIP.String() + ":" + port // currentNode IP
-	bnIP := "172.19.0.2:10001"                  // bootstrapNode IP
+	bnIP := "172.21.0.2:10001"                  // bootstrapNode IP
 
 	fmt.Println("Your IP is:", localIPstr)
 
@@ -25,7 +25,6 @@ func main() {
 
 	network := &lc.Network{}
 	network.Node = &me
-	network.Store = make(map[string][]byte)
 
 	fmt.Printf("\nIP: %s\n", localIP.String())
 	// Join network if not a BootstrapNode

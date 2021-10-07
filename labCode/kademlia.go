@@ -15,6 +15,7 @@ const alpha int = 3
 type Kademlia struct {
 	Me           Contact
 	Routingtable *RoutingTable
+	DataStore    map[string][]byte
 }
 
 // NewKademliaNode returns a new instance of a Kademlianode
@@ -22,6 +23,7 @@ func NewKademliaNode(address string) (node Kademlia) {
 	nodeID := NewKademliaID(HashData(address)) // Assign a KademliaID to this node
 	node.Me = NewContact(nodeID, address)      // and store to contact object
 	node.Routingtable = NewRoutingTable(node.Me)
+	node.DataStore = make(map[string][]byte)
 
 	// print trace, remove later
 	fmt.Printf("Node %s created on address %s \n", node.Me.ID.String(), node.Me.Address)
@@ -116,7 +118,6 @@ func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, t
 
 		// data not nil = correct data is found
 		if targetData != nil {
-			lookuplist.Data = targetData
 			return targetData, dataContact
 		}
 
