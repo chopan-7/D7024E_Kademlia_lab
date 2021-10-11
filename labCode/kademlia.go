@@ -15,6 +15,7 @@ const alpha int = 3
 type Kademlia struct {
 	Me           Contact
 	Routingtable *RoutingTable
+	DataStore    map[string][]byte
 }
 
 // NewKademliaNode returns a new instance of a Kademlianode
@@ -22,6 +23,7 @@ func NewKademliaNode(address string) (node Kademlia) {
 	nodeID := NewKademliaID(HashData(address)) // Assign a KademliaID to this node
 	node.Me = NewContact(nodeID, address)      // and store to contact object
 	node.Routingtable = NewRoutingTable(node.Me)
+	node.DataStore = make(map[string][]byte)
 
 	// print trace, remove later
 	fmt.Printf("Node %s created on address %s \n", node.Me.ID.String(), node.Me.Address)
@@ -115,14 +117,14 @@ func (kademlia *Kademlia) Store(data []byte) {
 	hashFile := HashData(string(data))
 	hashID := NewKademliaID(hashFile)
 
-	fileDestinations := kademlia.Routingtable.FindClosestContacts(hashID, bucketSize)
+	fileDestinations := kademlia.LookupContact(hashID)
 	for _, target := range fileDestinations {
 		net.SendStoreMessage(&target, data)
 	}
 
 }
 
-// JoinNetwork takes knownpeer or bootstrapNode
+// JoinNetwork takes knownpeer or bootstrapNode as input and joins the network.
 func (kademlia *Kademlia) JoinNetwork(knownpeer *Contact) {
 	kademlia.Routingtable.AddContact(*knownpeer)
 	kademlia.LookupContact(kademlia.Me.ID)

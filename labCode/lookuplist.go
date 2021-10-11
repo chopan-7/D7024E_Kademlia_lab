@@ -16,7 +16,6 @@ type LookupCandidates struct {
 type LookupList struct {
 	Nodelist []LookupListItems
 	Mux      sync.Mutex
-	Data     []byte
 }
 
 type LookupListItems struct {
@@ -85,7 +84,6 @@ func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, t
 
 		// data not nil = correct data is found
 		if targetData != nil {
-			lookuplist.Data = targetData
 			return targetData, dataContact
 		}
 

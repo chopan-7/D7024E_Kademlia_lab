@@ -7,3 +7,6 @@ compose-up:
 
 compose-down:
 	docker-compose down
+
+clirun:
+	docker exec -it $(id) /bin/sh -c "/cli"

@@ -187,7 +187,7 @@ func (app *CLIApp) exit() error {
 	rec := unmarshallCLIData(buf[0:n])
 	if rec.RPC == "exit" {
 		fmt.Printf("\nTerminating node with ip: %s\n", app.IP)
-		os.Exit(1)
+		os.Exit(0)
 	}
 	return nil
 }

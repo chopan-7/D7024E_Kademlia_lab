@@ -25,14 +25,13 @@ func main() {
 
 	network := &lc.Network{}
 	network.Node = &me
-	network.Store = make(map[string][]byte)
 
 	fmt.Printf("\nIP: %s\n", localIP.String())
 	// Join network if not a BootstrapNode
 	if localIPstr != bnIP {
 		// Join network by sending LookupContact to bootstrapNode
 		me.JoinNetwork(&bnContact)
-		fmt.Printf("\nRoutingtable: %s\n", me.Routingtable.FindClosestContacts(me.Me.ID, 5))
+		fmt.Printf("\nRoutingtable: %s\n", me.Routingtable.FindClosestContacts(me.Me.ID, 20))
 	}
 
 	go network.Listen()

@@ -10,23 +10,7 @@ import (
 )
 
 type Network struct {
-	Node  *Kademlia
-	Store map[string][]byte
-}
-
-// Message body is used to stora any information that we want to send in an RPC
-type Msgbody struct {
-	Nodes []Contact   // List of contact nodes
-	Data  []byte      // Hashed key value
-	KadID *KademliaID // For find_node RPCs the id we are looking for
-	Hash  string      // Used for find_value rpcs to find the node that has stored data for the hashed key value
-}
-
-type Response struct {
-	RPC            string      // String representing what kind of rpc the message is
-	ID             *KademliaID // A randomly generated kademlia id to identify the ping
-	SendingContact *Contact
-	Body           Msgbody
+	Node *Kademlia
 }
 
 // Will open up a UDP listener on itself with a given port.
@@ -52,94 +36,9 @@ func (network *Network) Listen() {
 	}
 }
 
-// All of the RPC are sent using these message functions. The functions will create a Response
-// object with the data it has to send. Then the MessageHandler function will send and retreive the response
-// from the other contact
-
-// Creates correct message for a ping
-func (network *Network) SendPingMessage(contact *Contact) error {
-
-	msg := Response{
-		RPC:            "ping",
-		ID:             NewRandomKademliaID(),
-		SendingContact: &network.Node.Me,
-	}
-
-	_, err := network.MessageHandler(contact, msg)
-	if err != nil {
-		errors.Wrap(err, "Something went wrong")
-	}
-	return nil
-}
-
-// Creates correct message object for find_node RPC
-func (network *Network) SendFindContactMessage(contact *Contact, kadID *KademliaID) ([]Contact, error) {
-
-	body := Msgbody{
-		KadID: kadID, // Puts the nodes ID we are looking for in the body
-	}
-
-	msg := Response{
-		RPC:            "find_node",
-		ID:             NewRandomKademliaID(),
-		SendingContact: &network.Node.Me,
-		Body:           body,
-	}
-
-	res, err := network.MessageHandler(contact, msg)
-	if err != nil {
-		errors.Wrap(err, "Something went wrong")
-	}
-
-	return res.Body.Nodes, nil
-
-}
-
-// Creates correct message object for find_data RPC
-func (network *Network) SendFindDataMessage(contact *Contact, hash string) ([]byte, []Contact, Contact, error) {
-	body := Msgbody{
-		Hash: hash, // Hashed id is put in the body
-	}
-
-	msg := Response{
-		RPC:            "find_data",
-		ID:             NewRandomKademliaID(),
-		SendingContact: &network.Node.Me,
-		Body:           body,
-	}
-
-	res, err := network.MessageHandler(contact, msg)
-	if err != nil {
-		errors.Wrap(err, "Something went wrong")
-	}
-
-	return res.Body.Data, res.Body.Nodes, *res.SendingContact, nil
-}
-
-// Creates the correct message for a store_data RPC
-func (network *Network) SendStoreMessage(contact *Contact, data []byte) error {
-	body := Msgbody{
-		Data: data, // Data to store is put in the body
-	}
-
-	msg := Response{
-		RPC:            "store_data",
-		ID:             NewRandomKademliaID(),
-		SendingContact: &network.Node.Me,
-		Body:           body,
-	}
-
-	_, err := network.MessageHandler(contact, msg)
-	if err != nil {
-		errors.Wrap(err, "Something went wrong")
-	}
-	return nil
-}
-
-// Handles the UDP connection dial up.
-// Will fetch address of the desired contact and will then open a connection to that adress
-// Will marshal the data and then send it over the connection
-// Waits for a response from the connection and then returns the response object if it is validated.
+// Handles the UDP connection dial up. Will fetch address of the desired contact and then open a connection to that adress.
+// The data will be marshalled and then send it over the connection, then waits for a response from the connection and then
+// returns the response object if it is validated.
 func (network *Network) MessageHandler(contact *Contact, msg Response) (Response, error) {
 	udpAddr := GetUDPAddrFromContact(contact)
 
@@ -179,13 +78,13 @@ func sendResponse(conn *net.UDPConn, addr *net.UDPAddr, responseMsg []byte) {
 func (network *Network) responseHandler(res Response, node Kademlia) Response {
 	switch res.RPC {
 	case "ping":
-		return network.createPingResponse(res)
+		return network.CreatePingResponse(res)
 	case "find_node":
-		return network.createFindNodeResponse(res, node)
+		return network.CreateFindNodeResponse(res)
 	case "find_data":
-		return network.createFindDataResponse(res, node)
+		return network.CreateFindDataResponse(res)
 	case "store_data":
-		return network.createStoreResponse(res)
+		return network.CreateStoreResponse(res)
 	}
 
 	return Response{}
@@ -199,90 +98,6 @@ func Validate(msg Response, res Response) bool {
 	} else {
 		return false
 	}
-}
-
-// Will create a simple ping RPC response object
-func (network *Network) createPingResponse(res Response) Response {
-	responseMessage := Response{
-		RPC:            "ping",
-		ID:             res.ID,
-		SendingContact: &network.Node.Me,
-	}
-	return responseMessage
-}
-
-// Creates a find_node RPC response containing the nodes k closest contacts to a given ID
-func (network *Network) createFindNodeResponse(res Response, node Kademlia) Response {
-
-	contacts := node.Routingtable.FindClosestContacts(res.Body.KadID, bucketSize)
-
-	resBody := Msgbody{
-		Nodes: contacts,
-	}
-
-	responseMessage := Response{
-		RPC:            "find_node",
-		ID:             res.ID,
-		SendingContact: &network.Node.Me,
-		Body:           resBody,
-	}
-
-	return responseMessage
-}
-
-// Creates a find_data RPC response containing only the data requested if it is stored in the node
-// Or will return the 20 closest contacts to the hashed value ID
-func (network *Network) createFindDataResponse(res Response, node Kademlia) Response {
-	// Gets the data object from the map if the hash matches a key
-	var value []byte
-	var containsHash bool
-	value, containsHash = network.Store[res.Body.Hash]
-
-	if containsHash {
-
-		resBody := Msgbody{
-			Data: value,
-		}
-		responseMessage := Response{
-			RPC:            "find_data",
-			SendingContact: &network.Node.Me,
-			ID:             res.ID,
-			Body:           resBody,
-		}
-		return responseMessage
-	}
-
-	contacts := node.Routingtable.FindClosestContacts(NewKademliaID(res.Body.Hash), 20)
-
-	resBody := Msgbody{
-		Nodes: contacts,
-	}
-
-	responseMessage := Response{
-		RPC:            "find_data",
-		SendingContact: &network.Node.Me,
-		ID:             res.ID,
-		Body:           resBody,
-	}
-
-	return responseMessage
-
-}
-
-// Creates a simple store_data RPC response to confirm that the data has been stored on the node
-func (network *Network) createStoreResponse(res Response) Response {
-
-	//Stores data in the node
-	key := HashData(string(res.Body.Data))
-	network.Store[key] = res.Body.Data
-
-	responseMessage := Response{
-		RPC:            "store_data",
-		SendingContact: &network.Node.Me,
-		ID:             res.ID,
-	}
-
-	return responseMessage
 }
 
 // Will marshall the response object into json
