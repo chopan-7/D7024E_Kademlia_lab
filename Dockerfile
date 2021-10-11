@@ -30,6 +30,7 @@ COPY main.go ./
 
 # Build
 RUN go build -o /kadlab
+RUN go build -o /cli ./cli/cli.go
 
 # This is for documentation purposes only.
 # To actually open the port, runtime parameters
