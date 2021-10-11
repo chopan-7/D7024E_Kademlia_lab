@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -44,72 +45,63 @@ func main() {
 	fmt.Printf("Welcome to kademlia network!\nAvailable commands:\nput <string> (stores data on k closest nodes to hash)	\nget <hash> (fetches data object with this hash if it is stored in the network)	\nexit (terminates this node)\n")
 
 	for {
-		fmt.Printf("\nEnter command:")
+		fmt.Printf("\nEnter command: ")
 		text, _ := reader.ReadString('\n') //read from terminal
 		text = strings.TrimRight(text, "\n")
 
-		words := strings.Fields(text)
+		splitStr := strings.SplitN(text, " ", 2) //Split string at first space
 
-		err := app.parser(words)
+		err := app.parser(splitStr)
 
 		if err != nil {
-			fmt.Println(errors.Wrap(err, "Failed to parse command"))
+			fmt.Printf("%s", err)
 		}
 	}
 }
 
 func (app *CLIApp) parser(cmd []string) error {
-	if len(cmd) > 2 {
-		return errors.New("Too many arguments")
-	}
+	var err error
 	switch command := cmd[0]; command {
 	case "put":
-		app.put(cmd[1])
+		err = app.put(cmd[1])
 	case "get":
-		app.get(cmd[1])
+		args := strings.Fields(cmd[1]) // Checks so that the get command only receives one argument
+		if len(args) > 1 {
+			return errors.New("Too many arguments in command")
+		}
+		err = app.get(cmd[1])
 	case "exit":
-		app.exit()
+		err = app.exit()
 	default:
-		return errors.New(command + "is not a valid command...")
+		return errors.New("(" + command + ")" + " is not a valid command")
+	}
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
 func (app *CLIApp) put(data string) error {
 
-	req := CLIResponse{
+	msg := CLIResponse{
 		RPC: "put",
 		Body: CLIMsgBody{
 			Data: []byte(data),
 		},
 	}
 
-	marshalledReq := marshallCLIData(req)
-
-	server := net.UDPAddr{
-		Port: app.Port,
-		IP:   net.ParseIP(app.IP),
-	}
-
-	Conn, err := net.DialUDP("udp", nil, &server)
+	res, err := app.CLIMessageHandler(msg)
 
 	if err != nil {
-		return errors.Wrap(err, "CLI: Failed to open connection to "+app.IP)
+		return err
 	}
 
-	defer Conn.Close()
+	hashData := string(res.Body.Data)
 
-	Conn.Write([]byte(marshalledReq))
-	buf := make([]byte, 1024)
-	n, _, _ := Conn.ReadFromUDP(buf)
-	rec := unmarshallCLIData(buf[0:n])
-
-	hashData := string(rec.Body.Data)
-
-	if rec.RPC == req.RPC {
+	if res.RPC == msg.RPC {
 		fmt.Printf("\nSuccesfully stored data with hash: %s\n", hashData)
 	} else {
-		fmt.Println("Something went wrong")
+		fmt.Printf("\nWrong RPC in response message\n")
 	}
 
 	return nil
@@ -117,79 +109,88 @@ func (app *CLIApp) put(data string) error {
 
 func (app *CLIApp) get(hash string) error {
 
-	req := CLIResponse{
+	msg := CLIResponse{
 		RPC: "get",
 		Body: CLIMsgBody{
 			Data: []byte(hash),
 		},
 	}
 
-	marshalledReq := marshallCLIData(req)
-
-	server := net.UDPAddr{
-		Port: app.Port,
-		IP:   net.ParseIP(app.IP),
-	}
-
-	Conn, err := net.DialUDP("udp", nil, &server)
+	res, err := app.CLIMessageHandler(msg)
 
 	if err != nil {
-		return errors.Wrap(err, "CLI: Failed to open connection to local ip:"+app.IP)
+		return err
 	}
 
-	defer Conn.Close()
+	receivedData := string(res.Body.Data)
+	dataContact := res.Body.DataContact
 
-	Conn.Write([]byte(marshalledReq))
-	buf := make([]byte, 1024)
-	n, _, _ := Conn.ReadFromUDP(buf)
-	rec := unmarshallCLIData(buf[0:n])
-
-	receivedData := string(rec.Body.Data)
-	dataContact := rec.Body.DataContact
-
-	if rec.RPC == req.RPC {
-		if rec.Body.Data == nil {
+	if res.RPC == msg.RPC {
+		if res.Body.Data == nil {
 			fmt.Printf("\nNo data found in the network with that hash\n")
 		} else {
 			fmt.Printf("\nFound data: %s\nFrom contact: %s\n", receivedData, &dataContact)
 		}
 	} else {
-		fmt.Println("Something went wrong")
+		fmt.Printf("\nSomething went wrong\n")
 	}
 
 	return nil
 }
 
 func (app *CLIApp) exit() error {
-	res := CLIResponse{
+	msg := CLIResponse{
 		RPC:  "exit",
 		Body: CLIMsgBody{},
 	}
 
-	marshalledReq := marshallCLIData(res)
+	res, err := app.CLIMessageHandler(msg)
 
+	if err != nil {
+		return err
+	}
+
+	if res.RPC == "exit" {
+		fmt.Printf("\nTerminating node with ip: %s\n", app.IP)
+		os.Exit(1)
+	} else {
+		fmt.Printf("\nWrong RPC in response\n")
+	}
+	return nil
+}
+
+func (app *CLIApp) CLIMessageHandler(msg CLIResponse) (CLIResponse, error) {
 	server := net.UDPAddr{
 		Port: app.Port,
 		IP:   net.ParseIP(app.IP),
 	}
 
+	marshalledMsg := marshallCLIData(msg)
+
 	Conn, err := net.DialUDP("udp", nil, &server)
 
 	if err != nil {
-		return errors.Wrap(err, "CLI: Failed to open connection to local ip:"+app.IP)
+		return CLIResponse{}, errors.New("CLI: Failed to open connection to local ip:" + app.IP)
 	}
 
 	defer Conn.Close()
 
-	Conn.Write([]byte(marshalledReq))
+	timeDeadline := time.Now().Add(2 * time.Second)
+
+	Conn.SetDeadline(timeDeadline)
+
+	Conn.Write([]byte(marshalledMsg))
 	buf := make([]byte, 1024)
-	n, _, _ := Conn.ReadFromUDP(buf)
-	rec := unmarshallCLIData(buf[0:n])
-	if rec.RPC == "exit" {
-		fmt.Printf("\nTerminating node with ip: %s\n", app.IP)
-		os.Exit(0)
+	n, _, err := Conn.ReadFromUDP(buf)
+
+	if err != nil {
+		return CLIResponse{}, errors.New("Connection to cli listener timer has expired")
 	}
-	return nil
+
+	res := unmarshallCLIData(buf[0:n])
+
+	return res, nil
+
 }
 
 // Will marshall the response object into json
