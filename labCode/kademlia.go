@@ -72,7 +72,7 @@ func (kademlia *Kademlia) LookupData(hash string) ([]byte, Contact) {
 
 	hashID := NewKademliaID(hash) // create kademlia ID from the hashed data
 	/*
-		listContact (below) is a LookupList which both contains the contacts
+		shortlist (below) is a LookupList which both contains the contacts
 		that need to be traversed in order to find the data as well
 		as data itself.
 	*/
@@ -106,61 +106,6 @@ func asyncLookupData(hash string, receiver Contact, net Network, ch chan []Conta
 	ch <- reslist
 	target <- targetData
 	dataContactCh <- dataContact
-}
-
-func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, target chan []byte, dataContactCh chan Contact, net Network, wg sync.WaitGroup) ([]byte, Contact) {
-	for {
-		contacts := <-ch
-		targetData := <-target
-		dataContact := <-dataContactCh
-
-		// data not nil = correct data is found
-		if targetData != nil {
-			lookuplist.Data = targetData
-			return targetData, dataContact
-		}
-
-		tempList := LookupList{}         // holds the response []Contact
-		tempList2 := lookuplist.Nodelist // Copy of lookuplist
-		for _, contact := range contacts {
-			listItem := LookupListItems{contact, false}
-			tempList.Nodelist = append(tempList.Nodelist, listItem)
-		}
-
-		// sorting/filtering list
-		sortingList := LookupCandidates{}
-		sortingList.Append(tempList2)         // right order??
-		sortingList.Append(tempList.Nodelist) // right order??
-		sortingList.Sort()
-
-		// update the lookuplist
-		if len(sortingList.Nodelist) < bucketSize {
-			lookuplist.Nodelist = sortingList.GetContacts(len(sortingList.Nodelist))
-		} else {
-			lookuplist.Nodelist = sortingList.GetContacts(bucketSize)
-		}
-
-		nextContact, Done := lookuplist.findNextLookup()
-		if Done {
-			return nil, Contact{}
-		} else {
-			go asyncLookupData(hash, nextContact, net, ch, target, dataContactCh)
-		}
-	}
-}
-
-func findNextLookupData(lookuplist *LookupList) (Contact, bool) {
-	var nextItem Contact
-	done := true
-	for i, item := range lookuplist.Nodelist {
-		if item.Flag == false {
-			nextItem = item.Node
-			lookuplist.Nodelist[i].Flag = true
-			done = false
-			break
-		}
-	}
-	return nextItem, done
 }
 
 // ########################################################################### \\
