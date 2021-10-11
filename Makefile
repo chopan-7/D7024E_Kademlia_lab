@@ -8,5 +8,5 @@ compose-up:
 compose-down:
 	docker-compose down
 
-run:
-	docker exec -it $(id) /bin/sh -c "go run cli/cli.go"
+clirun:
+	docker exec -it $(id) /bin/sh -c "/cli"
