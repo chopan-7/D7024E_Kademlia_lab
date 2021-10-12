@@ -1,6 +1,8 @@
 package labCode
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 /*
 networkSend creates send messages for network

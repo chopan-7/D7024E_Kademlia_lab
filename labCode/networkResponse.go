@@ -42,7 +42,7 @@ func (network *Network) CreateFindDataResponse(res Response) Response {
 	// Gets the data object from the map if the hash matches a key
 	var value []byte
 	var containsHash bool
-	value, containsHash = network.Node.DataStore[res.Body.Hash]
+	value, containsHash = network.Node.getDataFromStore(res.Body.Hash)
 
 	if containsHash {
 
@@ -77,10 +77,8 @@ func (network *Network) CreateFindDataResponse(res Response) Response {
 
 // Creates a simple store_data RPC response to confirm that the data has been stored on the node
 func (network *Network) CreateStoreResponse(res Response) Response {
-
-	//Stores data in the node
-	key := HashData(string(res.Body.Data))
-	network.Node.DataStore[key] = res.Body.Data
+	//Stores data in the node and set the expiration time (TTL)
+	network.Node.storeData(res.Body.Data)
 
 	responseMessage := Response{
 		RPC:            "store_data",

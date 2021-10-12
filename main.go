@@ -31,8 +31,11 @@ func main() {
 	if localIPstr != bnIP {
 		// Join network by sending LookupContact to bootstrapNode
 		me.JoinNetwork(&bnContact)
-		fmt.Printf("\nRoutingtable: %s\n", me.Routingtable.FindClosestContacts(me.Me.ID, 20))
+		// fmt.Printf("\nRoutingtable: %s\n", me.Routingtable.FindClosestContacts(me.Me.ID, 20))
 	}
+
+	// goroutine for data expiration runs every 20 seconds
+	go network.Node.CheckDataExpired(20)
 
 	go network.Listen()
 	cliListener := &lc.CLI{&me, network}

@@ -5,9 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
+	"time"
 )
 
-// alpha parameter
+// Kademlia parameters
 const alpha int = 3
 
 // Kademlia node definition
@@ -15,7 +16,7 @@ const alpha int = 3
 type Kademlia struct {
 	Me           Contact
 	Routingtable *RoutingTable
-	DataStore    map[string][]byte
+	DS           *DataStore
 }
 
 // NewKademliaNode returns a new instance of a Kademlianode
@@ -23,7 +24,7 @@ func NewKademliaNode(address string) (node Kademlia) {
 	nodeID := NewKademliaID(HashData(address)) // Assign a KademliaID to this node
 	node.Me = NewContact(nodeID, address)      // and store to contact object
 	node.Routingtable = NewRoutingTable(node.Me)
-	node.DataStore = make(map[string][]byte)
+	node.DS = NewDataStore() // Node's datastore
 
 	// print trace, remove later
 	fmt.Printf("Node %s created on address %s \n", node.Me.ID.String(), node.Me.Address)
@@ -137,4 +138,24 @@ func HashData(data string) (hashString string) {
 	newHash.Write([]byte(data))
 	hashString = hex.EncodeToString(newHash.Sum(nil))
 	return
+}
+
+// storeData saves the given data as a key/value pair to the nodes datastore and returns the key
+func (kademlia *Kademlia) storeData(data []byte) (key string, expTime time.Time) {
+	key, expTime = kademlia.DS.addData(data)
+	return
+}
+
+// GetDataFromStore(key) returns value and boolean
+func (kademlia *Kademlia) getDataFromStore(key string) (val []byte, hasVal bool) {
+	val, hasVal = kademlia.DS.getData(key)
+	return
+}
+
+// CheckDataExpired checks if the data objects in its own DataStore has expired and removes all expired data object.
+func (kademlia *Kademlia) CheckDataExpired(duration int) {
+	for {
+		time.Sleep(time.Second * time.Duration(duration))
+		kademlia.DS.dataExpired()
+	}
 }
