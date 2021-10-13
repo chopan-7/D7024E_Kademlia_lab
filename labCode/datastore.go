@@ -80,6 +80,12 @@ func (DS *DataStore) getData(key string) (val []byte, hasVal bool) {
 	return
 }
 
+// getExpT(key) returns the expiration time of the given object key
+func (DS *DataStore) getExpT(key string) (exp time.Time, hasVal bool) {
+	exp, hasVal = DS.Expire[key]
+	return
+}
+
 // hasExpired compares the time.Time value with time.Now()
 func hasExpired(expTime time.Time) bool {
 	if time.Now().After(expTime) {
