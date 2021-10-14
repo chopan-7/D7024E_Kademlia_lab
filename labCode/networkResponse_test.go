@@ -120,20 +120,24 @@ func TestCreateFindDataResponse_notFound(t *testing.T) {
 }
 func TestCreateFindDataResponse_found(t *testing.T) {
 	localIPstr := "172.19.0.3" + ":" + "10001"
-	data := "This_is_the_data"
-	hash := HashData(data)
+	data := []byte("This_is_the_data")
+	// hash := HashData(data)
+
 
 	me := NewKademliaNode(localIPstr)
 
 	network := &Network{}
 	network.Node = &me
-	network.Node.DataStore[hash] = []byte(data)
+
+	// network.Node.DataStore[hash] = []byte(data)
+	key, _ := network.Node.DS.addData(data)
+
 	testID := NewKademliaID("4bc578bd59ddbb005fc9ec86e3f44b9d60cf3f70")
 
 	testRes := Response{
 		ID: testID,
 		Body: Msgbody{
-			Hash: hash,
+			Hash: key,
 		},
 	}
 
@@ -153,7 +157,8 @@ func TestCreateFindDataResponse_found(t *testing.T) {
 	}
 
 	// check body of RPC
-	if string(res.Body.Data) != data {
+	if string(res.Body.Data) != string(data) {
+
 		t.Errorf("Expected: %s | Actual: %s", data, string(res.Body.Data))
 	}
 }

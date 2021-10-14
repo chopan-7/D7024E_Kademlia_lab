@@ -14,7 +14,7 @@ func main() {
 
 	localIP := GetOutboundIP()
 	localIPstr := localIP.String() + ":" + port // currentNode IP
-	bnIP := "172.21.0.2:10001"                  // bootstrapNode IP
+	bnIP := "172.18.0.2:10001"                  // bootstrapNode IP
 
 	fmt.Println("Your IP is:", localIPstr)
 

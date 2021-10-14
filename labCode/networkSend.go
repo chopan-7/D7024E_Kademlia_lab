@@ -83,6 +83,8 @@ func (network *Network) SendFindDataMessage(contact *Contact, hash string) ([]by
 		errors.Wrap(err, "Something went wrong")
 	}
 
+	// fmt.Printf("\nRes Data: %x\nRes Nodes: %x\n", res.Body.Data, res.Body.Nodes)
+
 	return res.Body.Data, res.Body.Nodes, *res.SendingContact, nil
 }
 
