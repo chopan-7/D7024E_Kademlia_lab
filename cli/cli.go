@@ -69,6 +69,12 @@ func (app *CLIApp) parser(cmd []string) error {
 		if len(args) > 1 {
 			return errors.New("Too many arguments in command")
 		}
+		if len(cmd[1]) != 40 {
+			return errors.New("Hash should be 40 characters long")
+		}
+		if !validHex(cmd[1]) {
+			return errors.New("Hash contains illegal characters")
+		}
 		err = app.get(cmd[1])
 	case "exit":
 		err = app.exit()
@@ -152,7 +158,7 @@ func (app *CLIApp) exit() error {
 
 	if res.RPC == "exit" {
 		fmt.Printf("\nTerminating node with ip: %s\n", app.IP)
-		os.Exit(1)
+		os.Exit(0)
 	} else {
 		fmt.Printf("\nWrong RPC in response\n")
 	}
@@ -175,7 +181,7 @@ func (app *CLIApp) CLIMessageHandler(msg CLIResponse) (CLIResponse, error) {
 
 	defer Conn.Close()
 
-	timeDeadline := time.Now().Add(2 * time.Second)
+	timeDeadline := time.Now().Add(20 * time.Second)
 
 	Conn.SetDeadline(timeDeadline)
 
@@ -224,4 +230,12 @@ func HashData(data string) (hashString string) {
 	newHash.Write([]byte(data))
 	hashString = hex.EncodeToString(newHash.Sum(nil))
 	return
+}
+
+func validHex(str string) bool {
+	_, err := hex.DecodeString(str)
+	if err != nil {
+		return false
+	}
+	return true
 }
