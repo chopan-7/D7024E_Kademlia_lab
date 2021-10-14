@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-
-	"github.com/pkg/errors"
 )
 
 type Network struct {
@@ -34,35 +32,6 @@ func (network *Network) Listen() {
 
 		sendResponse(ServerConn, remoteaddr, marshalledMsg)
 	}
-}
-
-// Handles the UDP connection dial up. Will fetch address of the desired contact and then open a connection to that adress.
-// The data will be marshalled and then send it over the connection, then waits for a response from the connection and then
-// returns the response object if it is validated.
-func (network *Network) MessageHandler(contact *Contact, msg Response) (Response, error) {
-	udpAddr := GetUDPAddrFromContact(contact)
-
-	marshalledMsg := marshallData(msg)
-
-	Conn, err := net.DialUDP("udp", nil, &udpAddr)
-
-	if err != nil {
-		return Response{}, errors.Wrap(err, "Client: Failed to open connection to "+udpAddr.IP.String())
-	}
-
-	defer Conn.Close()
-	Conn.Write([]byte(marshalledMsg))
-	buf := make([]byte, 2048)
-
-	// Conn.SetDeadline(time.Now().Add(deadline)) TODODODO
-
-	n, _, _ := Conn.ReadFromUDP(buf)
-	res := unmarshallData(buf[0:n])
-
-	if Validate(msg, res) {
-		network.Node.Routingtable.AddContact(*res.SendingContact)
-	}
-	return res, nil
 }
 
 // Given a connection channel, ip address of the node that sent a message

@@ -14,3 +14,32 @@ func TestNewKademliaNode(t *testing.T) {
 		t.Errorf("ID = %d; want: %d", contact.ID, testID)
 	}
 }
+
+func TestStoreAndLookup(t *testing.T) {
+	// Create network and kademlia object
+	testIP := GetOutboundIP()
+	port := "10012"
+	testIPStr := testIP.String() + ":" + port
+	node := NewKademliaNode(testIPStr)
+	net := &Network{}
+	net.Node = &node
+	go net.Listen()
+
+	// test JoinNetwork
+	net.Node.JoinNetwork(&net.Node.Me)
+
+	// test Store
+	testStoreData := []byte("karlsson_på_taket")
+	storeAt := net.Node.Store(testStoreData)
+
+	if len(storeAt) < 1 {
+		t.Error("Fail: couldn't store data in the network.")
+	}
+
+	// test LookupData
+	foundData, _ := net.Node.LookupData(HashData(string(testStoreData)))
+
+	if string(foundData) != string(testStoreData) {
+		t.Error("Fail: couldn't find stored data in the network.")
+	}
+}
