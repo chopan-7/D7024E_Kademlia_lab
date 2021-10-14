@@ -11,7 +11,7 @@ Datastore holds the data as key/value pair for each node with functionalities th
 and object expiration delay.
 */
 
-const TTL time.Duration = 60 // the time which a key/value pair expires after publication date
+const TTL time.Duration = 300 // the time which a key/value pair expires after publication date
 
 type DataStore struct {
 	Store  map[string][]byte
@@ -35,9 +35,9 @@ func NewDataStore() *DataStore {
 }
 
 // SetTTL set the expiration time for the key/value pair
-func (DS *DataStore) setTTL(key string) (exp time.Time) {
+func (DS *DataStore) setTTL(key string, ttl time.Duration) (exp time.Time) {
 	t := time.Now()
-	exp = t.Add(time.Second * TTL)
+	exp = t.Add(time.Second * ttl)
 	DS.Expire[key] = exp
 	return
 }
@@ -45,7 +45,7 @@ func (DS *DataStore) setTTL(key string) (exp time.Time) {
 // storeData saves the given data as a key/value pair to the nodes datastore and returns the key
 func (DS *DataStore) addData(data []byte) (key string, exp time.Time) {
 	key = HashData(string(data))
-	exp = DS.setTTL(key)
+	exp = DS.setTTL(key, TTL)
 	DS.Store[key] = data
 	DS.Log.Printf("New data object stored with key: %s", key)
 	return

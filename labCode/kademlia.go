@@ -4,6 +4,8 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"log"
+	"os"
 	"sync"
 	"time"
 )
@@ -17,6 +19,7 @@ type Kademlia struct {
 	Me           Contact
 	Routingtable *RoutingTable
 	DS           *DataStore
+	Log          *log.Logger
 }
 
 // NewKademliaNode returns a new instance of a Kademlianode
@@ -26,8 +29,13 @@ func NewKademliaNode(address string) (node Kademlia) {
 	node.Routingtable = NewRoutingTable(node.Me)
 	node.DS = NewDataStore() // Node's datastore
 
-	// print trace, remove later
-	fmt.Printf("Node %s created on address %s \n", node.Me.ID.String(), node.Me.Address)
+	// Node event log
+	file, err := os.OpenFile("node_log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+	node.Log = log.New(file, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	node.Log.Printf("Node %s created on address %s \n", node.Me.ID.String(), node.Me.Address)
 	return
 }
 
@@ -56,6 +64,9 @@ func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Cont
 	for _, insItem := range shortlist.Nodelist {
 		resultlist = append(resultlist, insItem.Node)
 	}
+
+	// Log lookup event
+	kademlia.Log.Printf("Looking up contact %s and found closest %s.", targetID.String(), resultlist)
 	return
 }
 

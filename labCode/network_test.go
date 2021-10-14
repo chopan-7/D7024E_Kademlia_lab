@@ -54,7 +54,7 @@ func TestValidateRPCID(t *testing.T) {
 	if !Validate(res1, res2) {
 		t.Errorf("Validation failed when it should have succeeded for responses: %v and %v", res1, res2)
 	}
-	if !Validate(res1, res3) {
+	if Validate(res1, res3) {
 		t.Errorf("Validation succeeded when it should have failed for wrong RPC string between the responses. RPC string 1: %v and RPC string 2: %v", res1.RPC, res3.RPC)
 	}
 	if Validate(res1, res4) {
@@ -62,6 +62,24 @@ func TestValidateRPCID(t *testing.T) {
 	}
 	if Validate(res1, res4) {
 		t.Errorf("Validation succeeded when it should have failed for wrong RPC string and ID between the responses. RPC 1: %v and RPC 2: %v", res1, res5)
+	}
+
+}
+
+// Test marshallData and unmarshallData
+func TestMarshallData(t *testing.T) {
+	sameRPCID := NewRandomKademliaID()
+
+	res := Response{
+		RPC: "ping",
+		ID:  sameRPCID,
+	}
+
+	marshalledData := marshallData(res)
+	unmarshalledData := unmarshallData(marshalledData)
+
+	if !unmarshalledData.ID.Equals(res.ID) {
+		t.Errorf("Failed: mismatch ID in response and unmarshalled response.")
 	}
 
 }
