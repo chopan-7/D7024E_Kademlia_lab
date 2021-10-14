@@ -3,8 +3,6 @@ package labCode
 import (
 	"encoding/hex"
 	"math/rand"
-	"net"
-	"strings"
 )
 
 // the static number of bytes in a KademliaID
@@ -70,19 +68,19 @@ func (kademliaID *KademliaID) String() string {
 	return hex.EncodeToString(kademliaID[0:IDLength])
 }
 
-// Helper function for retreiving IP-address
-func GetIP() string {
-	ip := "eth0 doesn't exists"
-	interfaces, _ := net.Interfaces()
-	for _, i := range interfaces {
-		byNameInterface, _ := net.InterfaceByName(i.Name)
-		if i.Name == "eth0" {
-			addresses, _ := byNameInterface.Addrs()
-			for _, v := range addresses {
-				ip = strings.TrimSuffix(v.String(), "/24")
-			}
-		}
+// // Helper function for retreiving IP-address
+// func GetIP() string {
+// 	ip := "eth0 doesn't exists"
+// 	interfaces, _ := net.Interfaces()
+// 	for _, i := range interfaces {
+// 		byNameInterface, _ := net.InterfaceByName(i.Name)
+// 		if i.Name == "eth0" {
+// 			addresses, _ := byNameInterface.Addrs()
+// 			for _, v := range addresses {
+// 				ip = strings.TrimSuffix(v.String(), "/24")
+// 			}
+// 		}
 
-	}
-	return ip
-}
+// 	}
+// 	return ip
+// }

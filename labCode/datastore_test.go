@@ -10,13 +10,18 @@ func TestDataExpired(t *testing.T) {
 	testData := []byte("karlsson_på_taket")
 	key, _ := ds.addData(testData)
 
-	// expire stored data object
-	ds.setTTL(key, -10000000000)
 	items, removed := ds.dataExpired()
+	if items == 0 && removed == 1 {
+		t.Errorf("Failed: Item removed before TTL expiration. Removed: %d", removed)
+	}
+
+	// expire stored data object
+	ds.setTTL(key, -10000000) // increase the
+	items1, removed1 := ds.dataExpired()
 
 	// test if data object has been removed
-	if items != 0 && removed == 1 {
-		t.Errorf("Failed: Items removed = %d", removed)
+	if items1 != 0 && removed1 == 1 {
+		t.Errorf("Failed: Item was not removed after TTL expiration. Removed: %d", removed1)
 	}
 }
 
@@ -41,7 +46,7 @@ func TestHasExpired(t *testing.T) {
 	var now time.Time
 	now = time.Now()
 	notexpiredTime := now.Add(time.Second * 2)
-	expiredTime := now.Add(time.Second * -2)
+	expiredTime := now.Add(time.Second * -20000)
 
 	if hasExpired(notexpiredTime) {
 		t.Errorf("Fail: true when time hasn't expired.")

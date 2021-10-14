@@ -3,7 +3,6 @@ package labCode
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -123,7 +122,7 @@ func asyncLookupData(hash string, receiver Contact, net Network, ch chan []Conta
 }
 
 // ########################################################################### \\
-func (kademlia *Kademlia) Store(data []byte) {
+func (kademlia *Kademlia) Store(data []byte) []Contact {
 	net := &Network{}
 	net.Node = kademlia
 	hashFile := HashData(string(data))
@@ -134,13 +133,18 @@ func (kademlia *Kademlia) Store(data []byte) {
 		net.SendStoreMessage(&target, data)
 	}
 
+	return fileDestinations
+
 }
 
 // JoinNetwork takes knownpeer or bootstrapNode as input and joins the network.
-func (kademlia *Kademlia) JoinNetwork(knownpeer *Contact) {
+func (kademlia *Kademlia) JoinNetwork(knownpeer *Contact) []Contact {
 	kademlia.Routingtable.AddContact(*knownpeer)
-	kademlia.LookupContact(kademlia.Me.ID)
-	fmt.Printf("Joining network")
+	contacts := kademlia.LookupContact(kademlia.Me.ID)
+
+	//Log join evet
+	kademlia.Log.Printf("Joining network via %s", knownpeer.String())
+	return contacts
 }
 
 // Helper function for hashing data returing hexstring
