@@ -28,9 +28,10 @@ func TestRefresh(t *testing.T) {
 	// Create new node objects
 	kademlia := NewKademliaNode("127.0.0.1")
 	alpha := NewKademliaNode("255.255.255.255") // alpha node
+	target := NewContact(NewKademliaID("2111111190000000000000000000000000000000"), "localhost:8002")
 
 	// Populate routing table
-	alpha.Routingtable.AddContact(NewContact(NewKademliaID("2111111190000000000000000000000000000000"), "localhost:8002"))
+	alpha.Routingtable.AddContact(target)
 	for i := 0; i < 50; i++ {
 		kademlia.Routingtable.AddContact(NewContact(NewRandomKademliaID(), "localhost:8002"))
 		alpha.Routingtable.AddContact(NewContact(NewRandomKademliaID(), "localhost:8002"))
@@ -40,14 +41,19 @@ func TestRefresh(t *testing.T) {
 	lookup := kademlia.NewLookupList(NewKademliaID("2111111400000000000000000000000000000000"))
 	alphasClosest := alpha.Routingtable.FindClosestContacts(NewKademliaID("2111111400000000000000000000000000000000"), 20)
 
+	// Add target to list of deadnodes
+	deadNodes := LookupCandidates{}
+	dn_item := LookupListItems{target, false}
+	deadNodes.Nodelist = append(deadNodes.Nodelist, dn_item)
+
 	// refresh lookupList
-	nextLookupContact, _ := lookup.refresh(alphasClosest)
+	lookup.refresh(alphasClosest, deadNodes.Nodelist)
 
-	want_nextContact := lookup.Nodelist[0]
-
-	// check if refresh returns correct next contact
-	if !nextLookupContact.ID.Equals(want_nextContact.Node.ID) {
-		t.Errorf("Failed: Next lookup contact doesn't match. Want: %s, Got: %s", want_nextContact.Node.String(), nextLookupContact.String())
+	// check if target is in lookup
+	for _, node := range lookup.Nodelist {
+		if node.Node.ID.Equals(target.ID) {
+			t.Errorf("Fail: The refresh function did not remove the dead node from the shortlist.")
+		}
 	}
 
 }
