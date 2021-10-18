@@ -1,5 +1,7 @@
 package labCode
 
+import "fmt"
+
 const bucketSize = 20
 
 // RoutingTable definition
@@ -24,6 +26,13 @@ func (routingTable *RoutingTable) AddContact(contact Contact) {
 	bucketIndex := routingTable.getBucketIndex(contact.ID)
 	bucket := routingTable.buckets[bucketIndex]
 	bucket.AddContact(contact)
+}
+
+func (routingTable *RoutingTable) RemoveContact(contact Contact) {
+	bucketIndex := routingTable.getBucketIndex(contact.ID)
+	bucket := routingTable.buckets[bucketIndex]
+	fmt.Printf("\nRemoving contact: %s\n", &contact)
+	bucket.RemoveContact(contact)
 }
 
 // FindClosestContacts finds the count closest Contacts to the target in the RoutingTable

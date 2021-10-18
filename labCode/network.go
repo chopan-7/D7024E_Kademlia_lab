@@ -20,7 +20,7 @@ func (network *Network) Listen() {
 
 	ServerConn, _ := net.ListenUDP("udp", &server)
 	defer ServerConn.Close()
-	buf := make([]byte, 2048)
+	buf := make([]byte, 5000)
 	for {
 		n, remoteaddr, _ := ServerConn.ReadFromUDP(buf)
 		res := unmarshallData(buf[0:n])

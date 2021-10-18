@@ -42,22 +42,23 @@ func NewKademliaNode(address string) (node Kademlia) {
 func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Contact) {
 	net := &Network{} // network object
 	net.Node = kademlia
-	ch := make(chan []Contact) // channel for response
+	ch := make(chan []Contact)  // channel for response
+	conCh := make(chan Contact) // Channel for response contact
 
 	// shortlist of k-closest nodes
 	shortlist := kademlia.NewLookupList(targetID)
 
 	// if LookupContact on JoinNetwork
 	if shortlist.Len() < alpha {
-		go AsyncLookup(*targetID, shortlist.Nodelist[0].Node, *net, ch)
+		go AsyncLookup(*targetID, shortlist.Nodelist[0].Node, *net, ch, conCh)
 	} else {
 		// sending RPCs to the alpha nodes async
 		for i := 0; i < alpha; i++ {
-			go AsyncLookup(*targetID, shortlist.Nodelist[i].Node, *net, ch)
+			go AsyncLookup(*targetID, shortlist.Nodelist[i].Node, *net, ch, conCh)
 		}
 	}
 
-	shortlist.updateLookupList(*targetID, ch, *net)
+	shortlist.updateLookupList(*targetID, ch, conCh, *net)
 
 	// creating the result list
 	for _, insItem := range shortlist.Nodelist {
@@ -70,9 +71,15 @@ func (kademlia *Kademlia) LookupContact(targetID *KademliaID) (resultlist []Cont
 }
 
 // AsyncLookup sends a FindContactMessage to the receiver and writes the response to a channel.
-func AsyncLookup(targetID KademliaID, receiver Contact, net Network, ch chan []Contact) {
-	reslist, _ := net.SendFindContactMessage(&receiver, &targetID)
-	ch <- reslist
+func AsyncLookup(targetID KademliaID, receiver Contact, net Network, ch chan []Contact, conCh chan Contact) {
+	reslist, err := net.SendFindContactMessage(&receiver, &targetID)
+	if err != nil {
+		ch <- reslist
+		conCh <- receiver
+	} else {
+		ch <- reslist
+		conCh <- receiver
+	}
 }
 
 // ########################################################################### \\

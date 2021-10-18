@@ -1,7 +1,9 @@
 package labCode
 
 import (
+	"fmt"
 	"net"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -31,6 +33,7 @@ type Response struct {
 // Handles the UDP connection dial up. Will fetch address of the desired contact and then open a connection to that adress.
 // The data will be marshalled and then send it over the connection, then waits for a response from the connection and then
 // returns the response object if it is validated.
+// If deadline expires read returns error
 func (network *Network) MessageHandler(contact *Contact, msg Response) (Response, error) {
 	udpAddr := GetUDPAddrFromContact(contact)
 
@@ -44,12 +47,18 @@ func (network *Network) MessageHandler(contact *Contact, msg Response) (Response
 
 	defer Conn.Close()
 	Conn.Write([]byte(marshalledMsg))
-	buf := make([]byte, 2048)
+	buf := make([]byte, 5000)
 
-	// Conn.SetDeadline(time.Now().Add(deadline)) TODODODO
-
-	n, _, _ := Conn.ReadFromUDP(buf)
+	timeDeadline := time.Now().Add(500 * time.Millisecond)
+	Conn.SetDeadline(timeDeadline)
+	n, _, err := Conn.ReadFromUDP(buf)
 	res := unmarshallData(buf[0:n])
+
+	if err != nil {
+		fmt.Println("Mr error: ", err)
+		network.Node.Routingtable.RemoveContact(*contact)
+		return Response{}, errors.New("Connection to contact timer has expired")
+	}
 
 	if Validate(msg, res) {
 		network.Node.Routingtable.AddContact(*res.SendingContact)
@@ -68,7 +77,7 @@ func (network *Network) SendPingMessage(contact *Contact) error {
 
 	_, err := network.MessageHandler(contact, msg)
 	if err != nil {
-		errors.Wrap(err, "Something went wrong")
+		return errors.Wrap(err, "Something went wrong")
 	}
 	return nil
 }
@@ -89,7 +98,7 @@ func (network *Network) SendFindContactMessage(contact *Contact, kadID *Kademlia
 
 	res, err := network.MessageHandler(contact, msg)
 	if err != nil {
-		errors.Wrap(err, "Something went wrong")
+		return nil, errors.Wrap(err, "Something went wrong")
 	}
 
 	return res.Body.Nodes, nil
@@ -110,8 +119,9 @@ func (network *Network) SendFindDataMessage(contact *Contact, hash string) ([]by
 	}
 
 	res, err := network.MessageHandler(contact, msg)
+	fmt.Println("Error: ", err)
 	if err != nil {
-		errors.Wrap(err, "Something went wrong")
+		return nil, nil, Contact{}, errors.Wrap(err, "Something went wrong")
 	}
 
 	// fmt.Printf("\nRes Data: %x\nRes Nodes: %x\n", res.Body.Data, res.Body.Nodes)
@@ -134,7 +144,7 @@ func (network *Network) SendStoreMessage(contact *Contact, data []byte) error {
 
 	_, err := network.MessageHandler(contact, msg)
 	if err != nil {
-		errors.Wrap(err, "Something went wrong")
+		return errors.Wrap(err, "Something went wrong")
 	}
 	return nil
 }
