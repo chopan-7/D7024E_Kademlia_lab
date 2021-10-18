@@ -40,16 +40,18 @@ func (ls *LookupList) Len() int {
 	return len(ls.Nodelist)
 }
 
-func (lookuplist *LookupList) refresh(contacts []Contact) (Contact, bool) {
-	tempList := LookupList{}         // holds the response []Contact
-	tempList2 := lookuplist.Nodelist // Copy of lookuplist
+func (lookuplist *LookupList) refresh(contacts []Contact, notConsidered []LookupListItems) {
+	candidateList := LookupCandidates{} // holds the response []Contact
+	tempList := lookuplist.Nodelist     // Copy of lookuplist
 	for _, contact := range contacts {
 		listItem := LookupListItems{contact, false}
-		tempList.Nodelist = append(tempList.Nodelist, listItem)
+		candidateList.Nodelist = append(candidateList.Nodelist, listItem)
 	}
 	sortingList := LookupCandidates{}
-	sortingList.Append(tempList2)
-	sortingList.Append(tempList.Nodelist)
+	candidateList.Remove(notConsidered)
+	sortingList.Append(tempList)
+	sortingList.Remove(notConsidered)
+	sortingList.Append(candidateList.Nodelist)
 	sortingList.Sort()
 
 	if len(sortingList.Nodelist) < bucketSize {
@@ -58,19 +60,27 @@ func (lookuplist *LookupList) refresh(contacts []Contact) (Contact, bool) {
 		lookuplist.Nodelist = sortingList.GetContacts(bucketSize)
 	}
 
-	nextContact, Done := lookuplist.findNextLookup()
-
-	return nextContact, Done
+	return
 }
 
-func (lookuplist *LookupList) updateLookupList(targetID KademliaID, ch chan []Contact, net Network) {
+func (lookuplist *LookupList) updateLookupList(targetID KademliaID, ch chan []Contact, conCh chan Contact, net Network) {
+	notConsidered := LookupCandidates{}
 	for {
 		contacts := <-ch
-		nextContact, Done := lookuplist.refresh(contacts)
+		responder := <-conCh
+		if len(contacts) > 0 {
+			lookuplist.refresh(contacts, notConsidered.Nodelist)
+		} else {
+			resItem := LookupListItems{responder, true}
+			notConList := []LookupListItems{resItem}
+			notConsidered.Append(notConList)
+			lookuplist.refresh([]Contact{}, notConsidered.Nodelist)
+		}
+		nextContact, Done := lookuplist.findNextLookup()
 		if Done {
 			return
 		} else {
-			go AsyncLookup(targetID, nextContact, net, ch)
+			go AsyncLookup(targetID, nextContact, net, ch, conCh)
 		}
 	}
 }
@@ -87,7 +97,8 @@ func (lookuplist *LookupList) updateLookupData(hash string, ch chan []Contact, t
 			return targetData, dataContact
 		}
 
-		nextContact, Done := lookuplist.refresh(contacts)
+		lookuplist.refresh(contacts, []LookupListItems{})
+		nextContact, Done := lookuplist.findNextLookup()
 		if Done {
 			return nil, Contact{}
 		} else {
@@ -126,6 +137,21 @@ func (candidates *LookupCandidates) Append(Contacts []LookupListItems) {
 			candidates.Nodelist = append(candidates.Nodelist, newCandidate)
 		}
 	}
+}
+
+func (candidates *LookupCandidates) Remove(Contacts []LookupListItems) {
+	for _, newCandidate := range Contacts {
+		for i, candidate := range candidates.Nodelist {
+			if candidate.Node.ID.Equals(newCandidate.Node.ID) {
+				candidates.remove(i)
+				break
+			}
+		}
+	}
+}
+
+func (lc *LookupCandidates) remove(n int) {
+	lc.Nodelist = append(lc.Nodelist[:n], lc.Nodelist[n+1:]...)
 }
 
 // GetContacts returns the first count number of Contacts

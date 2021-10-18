@@ -2,6 +2,7 @@ package labCode
 
 import (
 	"container/list"
+	"fmt"
 )
 
 // bucket definition
@@ -32,10 +33,28 @@ func (bucket *bucket) AddContact(contact Contact) {
 	if element == nil {
 		if bucket.list.Len() < bucketSize {
 			bucket.list.PushFront(contact)
+		} else {
 		}
 	} else {
 		bucket.list.MoveToFront(element)
+
 	}
+}
+
+func (bucket *bucket) RemoveContact(contact Contact) {
+	fmt.Println("In remove func: ", contact)
+	var element *list.Element
+	for e := bucket.list.Front(); e != nil; e = e.Next() {
+		nodeID := e.Value.(Contact).ID
+
+		if (contact).ID.Equals(nodeID) {
+			element = e
+		}
+	}
+	if element != nil {
+		bucket.list.Remove(element)
+	}
+
 }
 
 // GetContactAndCalcDistance returns an array of Contacts where

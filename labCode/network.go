@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -22,7 +23,7 @@ func (network *Network) Listen() {
 
 	ServerConn, _ := net.ListenUDP("udp", &server)
 	defer ServerConn.Close()
-	buf := make([]byte, 2048)
+	buf := make([]byte, 5000)
 	for {
 		n, remoteaddr, _ := ServerConn.ReadFromUDP(buf)
 		res := unmarshallData(buf[0:n])
@@ -52,12 +53,18 @@ func (network *Network) MessageHandler(contact *Contact, msg Response) (Response
 
 	defer Conn.Close()
 	Conn.Write([]byte(marshalledMsg))
-	buf := make([]byte, 2048)
+	buf := make([]byte, 5000)
 
-	// Conn.SetDeadline(time.Now().Add(deadline)) TODODODO
-
-	n, _, _ := Conn.ReadFromUDP(buf)
+	timeDeadline := time.Now().Add(500 * time.Millisecond)
+	Conn.SetDeadline(timeDeadline)
+	n, _, err := Conn.ReadFromUDP(buf)
 	res := unmarshallData(buf[0:n])
+
+	if err != nil {
+		fmt.Println("Mr error: ", err)
+		network.Node.Routingtable.RemoveContact(*contact)
+		return Response{}, errors.New("Connection to contact timer has expired")
+	}
 
 	if Validate(msg, res) {
 		network.Node.Routingtable.AddContact(*res.SendingContact)

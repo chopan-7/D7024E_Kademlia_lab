@@ -1,6 +1,10 @@
 package labCode
 
-import "github.com/pkg/errors"
+import (
+	"fmt"
+
+	"github.com/pkg/errors"
+)
 
 /*
 networkSend creates send messages for network
@@ -35,7 +39,7 @@ func (network *Network) SendPingMessage(contact *Contact) error {
 
 	_, err := network.MessageHandler(contact, msg)
 	if err != nil {
-		errors.Wrap(err, "Something went wrong")
+		return errors.Wrap(err, "Something went wrong")
 	}
 	return nil
 }
@@ -56,7 +60,7 @@ func (network *Network) SendFindContactMessage(contact *Contact, kadID *Kademlia
 
 	res, err := network.MessageHandler(contact, msg)
 	if err != nil {
-		errors.Wrap(err, "Something went wrong")
+		return nil, errors.Wrap(err, "Something went wrong")
 	}
 
 	return res.Body.Nodes, nil
@@ -77,9 +81,12 @@ func (network *Network) SendFindDataMessage(contact *Contact, hash string) ([]by
 	}
 
 	res, err := network.MessageHandler(contact, msg)
+	fmt.Println("Error: ", err)
 	if err != nil {
-		errors.Wrap(err, "Something went wrong")
+		return nil, nil, Contact{}, errors.Wrap(err, "Something went wrong")
 	}
+
+	fmt.Println("Response: ", res)
 
 	return res.Body.Data, res.Body.Nodes, *res.SendingContact, nil
 }
@@ -99,7 +106,7 @@ func (network *Network) SendStoreMessage(contact *Contact, data []byte) error {
 
 	_, err := network.MessageHandler(contact, msg)
 	if err != nil {
-		errors.Wrap(err, "Something went wrong")
+		return errors.Wrap(err, "Something went wrong")
 	}
 	return nil
 }
