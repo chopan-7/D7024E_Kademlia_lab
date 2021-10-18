@@ -5,6 +5,7 @@ import (
 	lc "kademlia/labCode"
 	"log"
 	"net"
+	"strings"
 )
 
 // Testing bootstrapnodes
@@ -14,7 +15,7 @@ func main() {
 
 	localIP := GetOutboundIP()
 	localIPstr := localIP.String() + ":" + port // currentNode IP
-	bnIP := "172.19.0.2:10001"                  // bootstrapNode IP
+	bnIP := GetbnIP(localIP.String())           // bootstrapNode IP
 
 	fmt.Println("Your IP is:", localIPstr)
 
@@ -31,7 +32,6 @@ func main() {
 	if localIPstr != bnIP {
 		// Join network by sending LookupContact to bootstrapNode
 		me.JoinNetwork(&bnContact)
-		// fmt.Printf("\nRoutingtable: %s\n", me.Routingtable.FindClosestContacts(me.Me.ID, 20))
 	}
 
 	// goroutine for data expiration runs every 20 seconds
@@ -50,4 +50,11 @@ func GetOutboundIP() net.IP {
 	defer conn.Close()
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 	return localAddr.IP
+}
+
+func GetbnIP(ipString string) string {
+	stringList := strings.Split(ipString, ".")
+	value := stringList[1]
+	bnIP := "172." + value + ".0.2:10001"
+	return bnIP
 }

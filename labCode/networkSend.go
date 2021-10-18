@@ -1,7 +1,6 @@
 package labCode
 
 import (
-	"fmt"
 	"net"
 	"time"
 
@@ -55,7 +54,6 @@ func (network *Network) MessageHandler(contact *Contact, msg Response) (Response
 	res := unmarshallData(buf[0:n])
 
 	if err != nil {
-		fmt.Println("Mr error: ", err)
 		network.Node.Routingtable.RemoveContact(*contact)
 		return Response{}, errors.New("Connection to contact timer has expired")
 	}
@@ -119,12 +117,9 @@ func (network *Network) SendFindDataMessage(contact *Contact, hash string) ([]by
 	}
 
 	res, err := network.MessageHandler(contact, msg)
-	fmt.Println("Error: ", err)
 	if err != nil {
 		return nil, nil, Contact{}, errors.Wrap(err, "Something went wrong")
 	}
-
-	// fmt.Printf("\nRes Data: %x\nRes Nodes: %x\n", res.Body.Data, res.Body.Nodes)
 
 	return res.Body.Data, res.Body.Nodes, *res.SendingContact, nil
 }
