@@ -9,13 +9,11 @@ import (
 // stores an array of Contacts
 type LookupCandidates struct {
 	Nodelist []LookupListItems
-	Mux      sync.Mutex
 }
 
 // LookupList for temporary storing Nodeitems
 type LookupList struct {
 	Nodelist []LookupListItems
-	Mux      sync.Mutex
 }
 
 type LookupListItems struct {
