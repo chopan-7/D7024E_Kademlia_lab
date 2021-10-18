@@ -41,6 +41,7 @@ func (bucket *bucket) AddContact(contact Contact) {
 	}
 }
 
+// Removes a contact from the bucket if it exists in it
 func (bucket *bucket) RemoveContact(contact Contact) {
 	fmt.Println("In remove func: ", contact)
 	var element *list.Element

@@ -1,7 +1,5 @@
 package labCode
 
-import "fmt"
-
 const bucketSize = 20
 
 // RoutingTable definition
@@ -28,10 +26,10 @@ func (routingTable *RoutingTable) AddContact(contact Contact) {
 	bucket.AddContact(contact)
 }
 
+// Removes contact from correct bucket
 func (routingTable *RoutingTable) RemoveContact(contact Contact) {
 	bucketIndex := routingTable.getBucketIndex(contact.ID)
 	bucket := routingTable.buckets[bucketIndex]
-	fmt.Printf("\nRemoving contact: %s\n", &contact)
 	bucket.RemoveContact(contact)
 }
 
